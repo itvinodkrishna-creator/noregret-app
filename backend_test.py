@@ -56,6 +56,9 @@ class LifeTrackerAPITester:
     def make_request(self, method: str, endpoint: str, data: Dict = None, params: Dict = None) -> tuple[bool, Any]:
         """Make HTTP request and return success status and response data"""
         try:
+            # Ensure endpoint doesn't start with /api if base_url already includes it
+            if endpoint.startswith('/api') and self.base_url.endswith('/api'):
+                endpoint = endpoint[4:]  # Remove /api prefix
             url = f"{self.base_url}{endpoint}"
             
             if method.upper() == 'GET':
