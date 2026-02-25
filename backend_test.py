@@ -127,8 +127,8 @@ class LifeTrackerAPITester:
         
         success, response = self.make_request('POST', '/api/tasks', task_data)
         
-        if success and isinstance(response, dict) and 'id' in response:
-            self.task_id = response['id']
+        if success and isinstance(response, dict) and ('id' in response or '_id' in response):
+            self.task_id = response.get('id') or response.get('_id')
             expected_fields = ['title', 'description', 'time', 'category', 'status', 'reminderEnabled']
             has_fields = all(field in response for field in expected_fields)
             self.log_test(
