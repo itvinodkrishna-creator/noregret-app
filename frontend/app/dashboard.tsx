@@ -114,7 +114,7 @@ export default function Dashboard() {
                 key={task._id}
                 task={task}
                 onPress={() => router.push(`/task-detail?id=${task._id}`)}
-                onComplete={() => completeTask(task._id!)}
+                onComplete={() => task._id && completeTask(task._id)}
               />
             ))
           )}
