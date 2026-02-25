@@ -243,8 +243,8 @@ class LifeTrackerAPITester:
         
         success, response = self.make_request('POST', '/api/food-plans', food_plan_data)
         
-        if success and isinstance(response, dict) and 'id' in response:
-            self.food_plan_id = response['id']
+        if success and isinstance(response, dict) and ('id' in response or '_id' in response):
+            self.food_plan_id = response.get('id') or response.get('_id')
             expected_fields = ['date', 'mealType', 'items', 'eaten', 'skipped']
             has_fields = all(field in response for field in expected_fields)
             self.log_test(
