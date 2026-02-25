@@ -108,7 +108,7 @@ export default function TasksScreen() {
               key={task._id}
               task={task}
               onPress={() => {}}
-              onComplete={() => completeTask(task._id!)}
+              onComplete={() => task._id && completeTask(task._id)}
             />
           ))
         )}
