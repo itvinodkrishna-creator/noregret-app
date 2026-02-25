@@ -568,8 +568,8 @@ class LifeTrackerAPITester:
 
 def main():
     """Main function to run the tests"""
-    # Use the public URL from frontend .env
-    BASE_URL = "https://lifetracker-app-4.preview.emergentagent.com/api"
+    # Use the local URL since public URL routing is not working
+    BASE_URL = "http://localhost:8001"
     
     print("LifeTracker Backend API Test Suite")
     print("==================================")
