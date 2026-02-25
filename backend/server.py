@@ -197,14 +197,14 @@ async def create_food_plan(food_plan: FoodPlanCreate):
     return FoodPlan(**serialize_doc(created_food_plan))
 
 @api_router.get("/food-plans", response_model=List[FoodPlan])
-async def get_food_plans(date: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None):
+async def get_food_plans(date: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None, limit: int = 100):
     query = {}
     if date:
         query["date"] = date
     elif start_date and end_date:
         query["date"] = {"$gte": start_date, "$lte": end_date}
     
-    food_plans = await db.food_plans.find(query).sort("date", -1).to_list(1000)
+    food_plans = await db.food_plans.find(query).sort("date", -1).limit(limit).to_list(limit)
     return [FoodPlan(**serialize_doc(fp)) for fp in food_plans]
 
 @api_router.get("/food-plans/{food_plan_id}", response_model=FoodPlan)
