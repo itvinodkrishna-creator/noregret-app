@@ -5,6 +5,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
 
+const HomeIcon = ({ color, size }: { color: string; size: number }) => (
+  <Ionicons name="home" size={size} color={color} />
+);
+
+const TasksIcon = ({ color, size }: { color: string; size: number }) => (
+  <Ionicons name="checkmark-circle" size={size} color={color} />
+);
+
+const FoodIcon = ({ color, size }: { color: string; size: number }) => (
+  <Ionicons name="restaurant" size={size} color={color} />
+);
+
+const StatsIcon = ({ color, size }: { color: string; size: number }) => (
+  <Ionicons name="bar-chart" size={size} color={color} />
+);
+
 function TabLayout() {
   const { theme } = useTheme();
   const { loadData, loading } = useAppStore();
@@ -16,7 +32,7 @@ function TabLayout() {
       setInitializing(false);
     };
     initialize();
-  }, []);
+  }, [loadData]);
 
   if (initializing || loading) {
     return (
@@ -46,36 +62,28 @@ function TabLayout() {
         name="dashboard"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
-          ),
+          tabBarIcon: HomeIcon,
         }}
       />
       <Tabs.Screen
         name="tasks"
         options={{
           title: 'Tasks',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="checkmark-circle" size={size} color={color} />
-          ),
+          tabBarIcon: TasksIcon,
         }}
       />
       <Tabs.Screen
         name="food"
         options={{
           title: 'Food',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="restaurant" size={size} color={color} />
-          ),
+          tabBarIcon: FoodIcon,
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
           title: 'Stats',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bar-chart" size={size} color={color} />
-          ),
+          tabBarIcon: StatsIcon,
         }}
       />
     </Tabs>
