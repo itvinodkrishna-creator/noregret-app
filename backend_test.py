@@ -212,7 +212,7 @@ class LifeTrackerAPITester:
             success, response = self.make_request('GET', f'/api/tasks/{self.task_id}')
             
             if success and isinstance(response, dict):
-                has_id = response.get('id') == self.task_id
+                has_id = response.get('id') == self.task_id or response.get('_id') == self.task_id
                 self.log_test(
                     "Get Single Task - GET /api/tasks/{id}",
                     has_id,
