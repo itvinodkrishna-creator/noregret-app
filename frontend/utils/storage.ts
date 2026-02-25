@@ -1,35 +1,65 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Task, FoodPlan, UserPreferences, UserStats } from '../types';
 import { Platform } from 'react-native';
+import { Task, FoodPlan, UserPreferences, UserStats } from '../types';
 
-// Web fallback for AsyncStorage
-const isWeb = Platform.OS === 'web';
+// Web-compatible storage implementation
+const createWebStorage = () => {
+  if (typeof window === 'undefined') {
+    // Server-side rendering fallback
+    return {
+      getItem: async () => null,
+      setItem: async () => {},
+      removeItem: async () => {},
+      multiRemove: async () => {},
+    };
+  }
 
-const webStorage = {
-  async getItem(key: string): Promise<string | null> {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      return window.localStorage.getItem(key);
-    }
-    return null;
-  },
-  async setItem(key: string, value: string): Promise<void> {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.setItem(key, value);
-    }
-  },
-  async removeItem(key: string): Promise<void> {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      window.localStorage.removeItem(key);
-    }
-  },
-  async multiRemove(keys: string[]): Promise<void> {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      keys.forEach(key => window.localStorage.removeItem(key));
-    }
-  },
+  return {
+    getItem: async (key: string): Promise<string | null> => {
+      try {
+        return window.localStorage.getItem(key);
+      } catch (error) {
+        console.warn('localStorage getItem error:', error);
+        return null;
+      }
+    },
+    setItem: async (key: string, value: string): Promise<void> => {
+      try {
+        window.localStorage.setItem(key, value);
+      } catch (error) {
+        console.warn('localStorage setItem error:', error);
+      }
+    },
+    removeItem: async (key: string): Promise<void> => {
+      try {
+        window.localStorage.removeItem(key);
+      } catch (error) {
+        console.warn('localStorage removeItem error:', error);
+      }
+    },
+    multiRemove: async (keys: string[]): Promise<void> => {
+      try {
+        keys.forEach(key => window.localStorage.removeItem(key));
+      } catch (error) {
+        console.warn('localStorage multiRemove error:', error);
+      }
+    },
+  };
 };
 
-const storage = isWeb ? webStorage : AsyncStorage;
+// Dynamically import AsyncStorage only for native platforms
+const getStorage = async () => {
+  if (Platform.OS === 'web') {
+    return createWebStorage();
+  }
+  
+  try {
+    const AsyncStorage = await import('@react-native-async-storage/async-storage');
+    return AsyncStorage.default;
+  } catch (error) {
+    console.warn('AsyncStorage import failed, falling back to web storage:', error);
+    return createWebStorage();
+  }
+};
 
 const KEYS = {
   TASKS: '@lifetracker:tasks',
@@ -38,9 +68,20 @@ const KEYS = {
   STATS: '@lifetracker:stats',
 };
 
+// Initialize storage on first use
+let storageInstance: any = null;
+
+const getStorageInstance = async () => {
+  if (!storageInstance) {
+    storageInstance = await getStorage();
+  }
+  return storageInstance;
+};
+
 // Task Storage
 export const getTasks = async (): Promise<Task[]> => {
   try {
+    const storage = await getStorageInstance();
     const data = await storage.getItem(KEYS.TASKS);
     return data ? JSON.parse(data) : [];
   } catch (error) {
@@ -51,6 +92,7 @@ export const getTasks = async (): Promise<Task[]> => {
 
 export const saveTasks = async (tasks: Task[]): Promise<void> => {
   try {
+    const storage = await getStorageInstance();
     await storage.setItem(KEYS.TASKS, JSON.stringify(tasks));
   } catch (error) {
     console.error('Error saving tasks:', error);
@@ -81,6 +123,7 @@ export const deleteTask = async (taskId: string): Promise<void> => {
 // Food Plan Storage
 export const getFoodPlans = async (): Promise<FoodPlan[]> => {
   try {
+    const storage = await getStorageInstance();
     const data = await storage.getItem(KEYS.FOOD_PLANS);
     return data ? JSON.parse(data) : [];
   } catch (error) {
@@ -91,6 +134,7 @@ export const getFoodPlans = async (): Promise<FoodPlan[]> => {
 
 export const saveFoodPlans = async (foodPlans: FoodPlan[]): Promise<void> => {
   try {
+    const storage = await getStorageInstance();
     await storage.setItem(KEYS.FOOD_PLANS, JSON.stringify(foodPlans));
   } catch (error) {
     console.error('Error saving food plans:', error);
@@ -115,6 +159,7 @@ export const updateFoodPlan = async (foodPlanId: string, updates: Partial<FoodPl
 // Preferences Storage
 export const getPreferences = async (): Promise<UserPreferences> => {
   try {
+    const storage = await getStorageInstance();
     const data = await storage.getItem(KEYS.PREFERENCES);
     return data ? JSON.parse(data) : { darkMode: true, notificationFrequency: 5 };
   } catch (error) {
@@ -125,6 +170,7 @@ export const getPreferences = async (): Promise<UserPreferences> => {
 
 export const savePreferences = async (preferences: UserPreferences): Promise<void> => {
   try {
+    const storage = await getStorageInstance();
     await storage.setItem(KEYS.PREFERENCES, JSON.stringify(preferences));
   } catch (error) {
     console.error('Error saving preferences:', error);
@@ -134,6 +180,7 @@ export const savePreferences = async (preferences: UserPreferences): Promise<voi
 // Stats Storage
 export const getStats = async (): Promise<UserStats> => {
   try {
+    const storage = await getStorageInstance();
     const data = await storage.getItem(KEYS.STATS);
     return data ? JSON.parse(data) : {
       currentStreak: 0,
@@ -156,6 +203,7 @@ export const getStats = async (): Promise<UserStats> => {
 
 export const saveStats = async (stats: UserStats): Promise<void> => {
   try {
+    const storage = await getStorageInstance();
     await storage.setItem(KEYS.STATS, JSON.stringify(stats));
   } catch (error) {
     console.error('Error saving stats:', error);
@@ -165,6 +213,7 @@ export const saveStats = async (stats: UserStats): Promise<void> => {
 // Clear all data
 export const clearAllData = async (): Promise<void> => {
   try {
+    const storage = await getStorageInstance();
     await storage.multiRemove([KEYS.TASKS, KEYS.FOOD_PLANS, KEYS.PREFERENCES, KEYS.STATS]);
   } catch (error) {
     console.error('Error clearing data:', error);
