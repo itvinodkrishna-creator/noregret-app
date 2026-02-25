@@ -1,86 +1,5 @@
-import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Task, FoodPlan, UserPreferences, UserStats } from '../types';
-
-// Create a storage adapter that works on all platforms
-const StorageAdapter = {
-  async getItem(key: string): Promise<string | null> {
-    if (Platform.OS === 'web') {
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          return window.localStorage.getItem(key);
-        }
-      } catch (error) {
-        console.warn('Web localStorage error:', error);
-      }
-      return null;
-    }
-    // Use AsyncStorage for mobile
-    try {
-      return await AsyncStorage.getItem(key);
-    } catch (error) {
-      console.error('AsyncStorage getItem error:', error);
-      return null;
-    }
-  },
-
-  async setItem(key: string, value: string): Promise<void> {
-    if (Platform.OS === 'web') {
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem(key, value);
-        }
-      } catch (error) {
-        console.warn('Web localStorage error:', error);
-      }
-      return;
-    }
-    // Use AsyncStorage for mobile
-    try {
-      await AsyncStorage.setItem(key, value);
-    } catch (error) {
-      console.error('AsyncStorage setItem error:', error);
-    }
-  },
-
-  async removeItem(key: string): Promise<void> {
-    if (Platform.OS === 'web') {
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.removeItem(key);
-        }
-      } catch (error) {
-        console.warn('Web localStorage error:', error);
-      }
-      return;
-    }
-    // Use AsyncStorage for mobile
-    try {
-      await AsyncStorage.removeItem(key);
-    } catch (error) {
-      console.error('AsyncStorage removeItem error:', error);
-    }
-  },
-
-  async multiRemove(keys: string[]): Promise<void> {
-    if (Platform.OS === 'web') {
-      try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          keys.forEach(key => window.localStorage.removeItem(key));
-        }
-      } catch (error) {
-        console.warn('Web localStorage error:', error);
-      }
-      return;
-    }
-    // Use AsyncStorage for mobile
-    try {
-      await AsyncStorage.multiRemove(keys);
-    } catch (error) {
-      console.error('AsyncStorage multiRemove error:', error);
-    }
-  },
-};
 
 const KEYS = {
   TASKS: '@lifetracker:tasks',
@@ -92,7 +11,7 @@ const KEYS = {
 // Task Storage
 export const getTasks = async (): Promise<Task[]> => {
   try {
-    const data = await StorageAdapter.getItem(KEYS.TASKS);
+    const data = await AsyncStorage.getItem(KEYS.TASKS);
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('Error getting tasks:', error);
@@ -102,7 +21,7 @@ export const getTasks = async (): Promise<Task[]> => {
 
 export const saveTasks = async (tasks: Task[]): Promise<void> => {
   try {
-    await StorageAdapter.setItem(KEYS.TASKS, JSON.stringify(tasks));
+    await AsyncStorage.setItem(KEYS.TASKS, JSON.stringify(tasks));
   } catch (error) {
     console.error('Error saving tasks:', error);
   }
@@ -132,7 +51,7 @@ export const deleteTask = async (taskId: string): Promise<void> => {
 // Food Plan Storage
 export const getFoodPlans = async (): Promise<FoodPlan[]> => {
   try {
-    const data = await StorageAdapter.getItem(KEYS.FOOD_PLANS);
+    const data = await AsyncStorage.getItem(KEYS.FOOD_PLANS);
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error('Error getting food plans:', error);
@@ -142,7 +61,7 @@ export const getFoodPlans = async (): Promise<FoodPlan[]> => {
 
 export const saveFoodPlans = async (foodPlans: FoodPlan[]): Promise<void> => {
   try {
-    await StorageAdapter.setItem(KEYS.FOOD_PLANS, JSON.stringify(foodPlans));
+    await AsyncStorage.setItem(KEYS.FOOD_PLANS, JSON.stringify(foodPlans));
   } catch (error) {
     console.error('Error saving food plans:', error);
   }
@@ -166,7 +85,7 @@ export const updateFoodPlan = async (foodPlanId: string, updates: Partial<FoodPl
 // Preferences Storage
 export const getPreferences = async (): Promise<UserPreferences> => {
   try {
-    const data = await StorageAdapter.getItem(KEYS.PREFERENCES);
+    const data = await AsyncStorage.getItem(KEYS.PREFERENCES);
     return data ? JSON.parse(data) : { darkMode: true, notificationFrequency: 5 };
   } catch (error) {
     console.error('Error getting preferences:', error);
@@ -176,7 +95,7 @@ export const getPreferences = async (): Promise<UserPreferences> => {
 
 export const savePreferences = async (preferences: UserPreferences): Promise<void> => {
   try {
-    await StorageAdapter.setItem(KEYS.PREFERENCES, JSON.stringify(preferences));
+    await AsyncStorage.setItem(KEYS.PREFERENCES, JSON.stringify(preferences));
   } catch (error) {
     console.error('Error saving preferences:', error);
   }
@@ -185,7 +104,7 @@ export const savePreferences = async (preferences: UserPreferences): Promise<voi
 // Stats Storage
 export const getStats = async (): Promise<UserStats> => {
   try {
-    const data = await StorageAdapter.getItem(KEYS.STATS);
+    const data = await AsyncStorage.getItem(KEYS.STATS);
     return data ? JSON.parse(data) : {
       currentStreak: 0,
       longestStreak: 0,
@@ -207,7 +126,7 @@ export const getStats = async (): Promise<UserStats> => {
 
 export const saveStats = async (stats: UserStats): Promise<void> => {
   try {
-    await StorageAdapter.setItem(KEYS.STATS, JSON.stringify(stats));
+    await AsyncStorage.setItem(KEYS.STATS, JSON.stringify(stats));
   } catch (error) {
     console.error('Error saving stats:', error);
   }
@@ -216,7 +135,7 @@ export const saveStats = async (stats: UserStats): Promise<void> => {
 // Clear all data
 export const clearAllData = async (): Promise<void> => {
   try {
-    await StorageAdapter.multiRemove([KEYS.TASKS, KEYS.FOOD_PLANS, KEYS.PREFERENCES, KEYS.STATS]);
+    await AsyncStorage.multiRemove([KEYS.TASKS, KEYS.FOOD_PLANS, KEYS.PREFERENCES, KEYS.STATS]);
   } catch (error) {
     console.error('Error clearing data:', error);
   }
