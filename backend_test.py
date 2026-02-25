@@ -572,7 +572,7 @@ class LifeTrackerAPITester:
 def main():
     """Main function to run the tests"""
     # Use the local URL since public URL routing is not working
-    BASE_URL = "http://localhost:8001"
+    BASE_URL = "http://localhost:8001/api"
     
     print("LifeTracker Backend API Test Suite")
     print("==================================")
