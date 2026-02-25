@@ -131,7 +131,7 @@ async def create_task(task: TaskCreate):
     return Task(**serialize_doc(created_task))
 
 @api_router.get("/tasks", response_model=List[Task])
-async def get_tasks(status: Optional[str] = None, date: Optional[str] = None):
+async def get_tasks(status: Optional[str] = None, date: Optional[str] = None, limit: int = 100):
     query = {}
     if status:
         query["status"] = status
@@ -139,7 +139,7 @@ async def get_tasks(status: Optional[str] = None, date: Optional[str] = None):
         # Get tasks for a specific date
         query["time"] = {"$regex": f"^{date}"}
     
-    tasks = await db.tasks.find(query).sort("time", 1).to_list(1000)
+    tasks = await db.tasks.find(query).sort("time", 1).limit(limit).to_list(limit)
     return [Task(**serialize_doc(task)) for task in tasks]
 
 @api_router.get("/tasks/{task_id}", response_model=Task)
