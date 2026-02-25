@@ -370,10 +370,10 @@ async def sync_data(sync_data: SyncData):
     }
 
 @api_router.get("/sync")
-async def get_sync_data():
+async def get_sync_data(limit: int = 100):
     """Get all data from cloud for sync"""
-    tasks = await db.tasks.find().to_list(1000)
-    food_plans = await db.food_plans.find().to_list(1000)
+    tasks = await db.tasks.find().limit(limit).to_list(limit)
+    food_plans = await db.food_plans.find().limit(limit).to_list(limit)
     preferences = await db.preferences.find_one({})
     stats = await db.stats.find_one({})
     
