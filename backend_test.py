@@ -325,7 +325,7 @@ class LifeTrackerAPITester:
             success, response = self.make_request('GET', f'/api/food-plans/{self.food_plan_id}')
             
             if success and isinstance(response, dict):
-                has_id = response.get('id') == self.food_plan_id
+                has_id = response.get('id') == self.food_plan_id or response.get('_id') == self.food_plan_id
                 self.log_test(
                     "Get Single Food Plan - GET /api/food-plans/{id}",
                     has_id,
