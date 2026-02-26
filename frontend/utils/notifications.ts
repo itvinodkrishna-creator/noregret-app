@@ -108,22 +108,38 @@ export async function scheduleTaskNotification(
 // Set up notification categories with actions
 export async function setupNotificationCategories() {
   try {
+    // Set up actions for the notification
     await Notifications.setNotificationCategoryAsync('alarm', [
       {
         identifier: 'stop',
-        buttonTitle: '🛑 Stop',
+        buttonTitle: '🛑 STOP',
         options: {
           opensAppToForeground: true,
+          isDestructive: true,
+          isAuthenticationRequired: false,
         },
       },
       {
-        identifier: 'wait',
-        buttonTitle: '⏰ Wait 5min',
+        identifier: 'snooze5',
+        buttonTitle: '⏰ Snooze 5min',
         options: {
           opensAppToForeground: false,
+          isDestructive: false,
+          isAuthenticationRequired: false,
+        },
+      },
+      {
+        identifier: 'snooze10',
+        buttonTitle: '⏰ Snooze 10min',
+        options: {
+          opensAppToForeground: false,
+          isDestructive: false,
+          isAuthenticationRequired: false,
         },
       },
     ]);
+    
+    console.log('✅ Notification action buttons configured');
   } catch (error) {
     console.error('Error setting up notification categories:', error);
   }
