@@ -295,6 +295,7 @@ export default function TasksScreen() {
                   value={selectedDate}
                   mode="date"
                   display="default"
+                  minimumDate={minDate}
                   onChange={(event, date) => {
                     setShowDatePicker(Platform.OS === 'ios');
                     if (date) setSelectedDate(date);
