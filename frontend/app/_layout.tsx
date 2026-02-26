@@ -50,19 +50,47 @@ function TabLayout() {
   }, [tasks]);
 
   const handleDismissAlarm = async () => {
+    console.log('🛑 STOP pressed - Dismissing alarm');
     await stopAlarmSound();
     setShowAlarm(false);
-    setAlarmTask(null);
     if (alarmTask) {
       await completeTask(alarmTask.id);
     }
+    setAlarmTask(null);
   };
 
   const handleSnoozeAlarm = async (minutes: number) => {
+    console.log(`⏰ SNOOZE pressed - ${minutes} minutes`);
     await stopAlarmSound();
     setShowAlarm(false);
     if (alarmTask) {
-      await storeSnoozeTask(alarmTask.id, minutes);
+      const task = tasks.find(t => t._id === alarmTask.id);
+      if (task) {
+        const snoozeTime = new Date(Date.now() + minutes * 60 * 1000);
+        
+        // Cancel old notification
+        if (task.notificationId) {
+          await cancelNotification(task.notificationId);
+        }
+        
+        // Schedule new notification
+        const { scheduleTaskNotification } = await import('../utils/notifications');
+        const notificationId = await scheduleTaskNotification(
+          alarmTask.id,
+          task.title,
+          snoozeTime,
+          task.ringtone || 'default'
+        );
+        
+        // Update task
+        await updateTask(alarmTask.id, {
+          status: 'snoozed',
+          snoozedUntil: snoozeTime.toISOString(),
+          notificationId,
+        });
+        
+        console.log(`✅ Alarm snoozed for ${minutes} minutes`);
+      }
     }
     setAlarmTask(null);
   };
