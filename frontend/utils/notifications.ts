@@ -1,7 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { AudioPlayer, useAudioPlayer } from 'expo-audio';
 
 // Configure notification to show and play sound
 Notifications.setNotificationHandler({
@@ -12,16 +11,16 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Global audio player
-let audioPlayer: AudioPlayer | null = null;
+// Global audio player reference
+let audioPlayer: any = null;
 let isPlaying = false;
 
-// Built-in alarm sounds (we'll use beep sounds that work)
-const BUILT_IN_SOUNDS = {
-  default: 'https://assets.mixkit.co/active_storage/sfx/2869/2869.wav', // Alarm beep
-  bell: 'https://assets.mixkit.co/active_storage/sfx/2568/2568.wav', // Bell
-  chime: 'https://assets.mixkit.co/active_storage/sfx/2571/2571.wav', // Chime  
-  alert: 'https://assets.mixkit.co/active_storage/sfx/2870/2870.wav', // Alert beep
+// Built-in alarm sounds
+const BUILT_IN_SOUNDS: { [key: string]: string } = {
+  default: 'https://assets.mixkit.co/active_storage/sfx/2869/2869.wav',
+  bell: 'https://assets.mixkit.co/active_storage/sfx/2568/2568.wav',
+  chime: 'https://assets.mixkit.co/active_storage/sfx/2571/2571.wav',
+  alert: 'https://assets.mixkit.co/active_storage/sfx/2870/2870.wav',
 };
 
 export async function registerForPushNotificationsAsync() {
@@ -56,63 +55,17 @@ export async function registerForPushNotificationsAsync() {
     return true;
   }
   
-  return false;
+  // Return true for web to allow continuing
+  return true;
 }
 
-export async function scheduleTaskNotification(
-  taskId: string,
-  title: string,
-  time: Date,
-  sound: string = 'default'
-): Promise<string> {
-  try {
-    // Schedule persistent notification with action buttons
-    const notificationId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: '⏰ ALARM - TASK REMINDER',
-        body: `🔔 ${title}\n\nTap to open alarm`,
-        data: { 
-          taskId, 
-          action: 'alarm',
-          taskTitle: title,
-          soundUrl: sound,
-          alarmTime: time.toISOString(),
-        },
-        sound: 'default',
-        priority: Notifications.AndroidNotificationPriority.MAX,
-        vibrate: [0, 500, 200, 500, 200, 500, 200, 500],
-        badge: 1,
-        autoDismiss: false, // Don't auto-dismiss
-        sticky: true,
-        ...(Platform.OS === 'android' && {
-          androidMode: Notifications.AndroidNotificationVisibility.PUBLIC,
-        }),
-        // Add action buttons for Android
-        categoryIdentifier: 'alarm',
-      },
-      trigger: {
-        date: time,
-        channelId: 'alarm',
-        repeats: false,
-      },
-    });
-
-    console.log(`✅ Alarm scheduled for ${time.toISOString()}, ID: ${notificationId}`);
-    return notificationId;
-  } catch (error) {
-    console.error('❌ Error scheduling notification:', error);
-    throw error;
-  }
-}
-
-// Set up notification categories with actions
+// Set up notification categories with actions (for native)
 export async function setupNotificationCategories() {
   try {
-    // Set up actions for the notification
     await Notifications.setNotificationCategoryAsync('alarm', [
       {
         identifier: 'stop',
-        buttonTitle: '🛑 STOP',
+        buttonTitle: 'STOP',
         options: {
           opensAppToForeground: true,
           isDestructive: true,
@@ -121,16 +74,7 @@ export async function setupNotificationCategories() {
       },
       {
         identifier: 'snooze5',
-        buttonTitle: '⏰ Snooze 5min',
-        options: {
-          opensAppToForeground: false,
-          isDestructive: false,
-          isAuthenticationRequired: false,
-        },
-      },
-      {
-        identifier: 'snooze10',
-        buttonTitle: '⏰ Snooze 10min',
+        buttonTitle: 'Snooze 5min',
         options: {
           opensAppToForeground: false,
           isDestructive: false,
@@ -138,10 +82,9 @@ export async function setupNotificationCategories() {
         },
       },
     ]);
-    
-    console.log('✅ Notification action buttons configured');
+    console.log('✅ Notification categories set up');
   } catch (error) {
-    console.error('Error setting up notification categories:', error);
+    console.log('⚠️ Notification categories setup skipped (web)');
   }
 }
 
@@ -150,18 +93,8 @@ export async function cancelNotification(notificationId: string) {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
     await Notifications.dismissNotificationAsync(notificationId);
   } catch (error) {
-    console.error('Error canceling notification:', error);
+    console.log('Error canceling notification:', error);
   }
-}
-
-export async function snoozeNotification(
-  taskId: string,
-  title: string,
-  minutes: number,
-  soundUrl?: string
-): Promise<string> {
-  const snoozeTime = new Date(Date.now() + minutes * 60 * 1000);
-  return scheduleTaskNotification(taskId, title, snoozeTime, soundUrl || 'default');
 }
 
 export async function getAllScheduledNotifications() {
@@ -171,21 +104,25 @@ export async function getAllScheduledNotifications() {
 // Play alarm sound with looping
 export async function playAlarmSound(soundUrl: string = 'default') {
   try {
+    // Stop any existing sound first
     await stopAlarmSound();
 
     // Get the sound URL
     const audioUrl = soundUrl.startsWith('http') 
       ? soundUrl 
-      : BUILT_IN_SOUNDS[soundUrl as keyof typeof BUILT_IN_SOUNDS] || BUILT_IN_SOUNDS.default;
+      : BUILT_IN_SOUNDS[soundUrl] || BUILT_IN_SOUNDS.default;
 
     console.log('🔊 Playing alarm sound:', audioUrl);
 
-    // Use expo-audio correctly
-    const { useAudioPlayer } = await import('expo-audio');
-    
-    // For now, we'll use a simpler approach - play via Audio component
-    // This works better cross-platform
+    // Use expo-av for audio playback
     const { Audio } = await import('expo-av');
+    
+    // Set audio mode for alarm-like behavior
+    await Audio.setAudioModeAsync({
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: true,
+      shouldDuckAndroid: false,
+    });
     
     const { sound } = await Audio.Sound.createAsync(
       { uri: audioUrl },
@@ -193,18 +130,15 @@ export async function playAlarmSound(soundUrl: string = 'default') {
         shouldPlay: true,
         isLooping: true,
         volume: 1.0,
-      },
-      null,
-      false
+      }
     );
 
-    audioPlayer = sound as any;
+    audioPlayer = sound;
     isPlaying = true;
     
     console.log('✅ Alarm sound playing (looping)');
   } catch (error) {
     console.error('❌ Error playing alarm sound:', error);
-    // Fallback - at least log that we tried
     isPlaying = false;
   }
 }
@@ -212,8 +146,8 @@ export async function playAlarmSound(soundUrl: string = 'default') {
 export async function stopAlarmSound() {
   try {
     if (audioPlayer) {
-      await (audioPlayer as any).stopAsync();
-      await (audioPlayer as any).unloadAsync();
+      await audioPlayer.stopAsync();
+      await audioPlayer.unloadAsync();
       audioPlayer = null;
       isPlaying = false;
       console.log('✅ Alarm sound stopped');
@@ -229,84 +163,13 @@ export function isAlarmPlaying(): boolean {
   return isPlaying;
 }
 
-// Set up notification listeners with sound playback
-export function setupNotificationListeners(
-  onAlarmTrigger: (taskId: string, title: string, soundUrl?: string) => void
-) {
-  // Handle notification received (app in foreground)
-  const receivedSubscription = Notifications.addNotificationReceivedListener(notification => {
-    const data = notification.request.content.data;
-    
-    // Only trigger alarm if this is an actual alarm notification
-    if (data.action === 'alarm') {
-      const scheduledTime = data.alarmTime ? new Date(data.alarmTime as string) : null;
-      const now = new Date();
-      
-      // Check if it's actually time for the alarm (not a test notification)
-      if (scheduledTime) {
-        const timeDiff = Math.abs(now.getTime() - scheduledTime.getTime());
-        // Only trigger if we're within 2 minutes of scheduled time (allowing for some delay)
-        if (timeDiff > 2 * 60 * 1000) {
-          console.log(`⏰ Alarm scheduled for ${scheduledTime.toISOString()}, too early to trigger`);
-          return;
-        }
-      }
-      
-      console.log('🔔 Alarm notification received - TIME TO ALARM!');
-      const soundUrl = data.soundUrl as string || 'default';
-      playAlarmSound(soundUrl);
-      onAlarmTrigger(data.taskId as string, data.taskTitle as string, soundUrl);
-    }
-  });
-
-  // Handle notification tapped or action button pressed
-  const responseSubscription = Notifications.addNotificationResponseReceivedListener(async response => {
-    const data = response.notification.request.content.data;
-    const actionIdentifier = response.actionIdentifier;
-
-    console.log('👆 Notification action:', actionIdentifier);
-
-    if (data.action === 'alarm') {
-      const taskId = data.taskId as string;
-      const taskTitle = data.taskTitle as string;
-      const soundUrl = data.soundUrl as string || 'default';
-
-      // Handle different actions
-      if (actionIdentifier === 'stop') {
-        // Stop button pressed on notification
-        console.log('🛑 STOP pressed from notification');
-        await stopAlarmSound();
-        await Notifications.dismissNotificationAsync(response.notification.request.identifier);
-        // Trigger the alarm UI to mark as complete
-        onAlarmTrigger(taskId, taskTitle, soundUrl);
-        
-      } else if (actionIdentifier === 'snooze5') {
-        // Snooze 5 min pressed on notification
-        console.log('⏰ Snooze 5min pressed from notification');
-        await stopAlarmSound();
-        await snoozeNotification(taskId, taskTitle, 5, soundUrl);
-        await Notifications.dismissNotificationAsync(response.notification.request.identifier);
-        
-      } else if (actionIdentifier === 'snooze10') {
-        // Snooze 10 min pressed on notification
-        console.log('⏰ Snooze 10min pressed from notification');
-        await stopAlarmSound();
-        await snoozeNotification(taskId, taskTitle, 10, soundUrl);
-        await Notifications.dismissNotificationAsync(response.notification.request.identifier);
-        
-      } else {
-        // Default action (tapped notification)
-        console.log('👆 Notification tapped - showing full alarm');
-        playAlarmSound(soundUrl);
-        onAlarmTrigger(taskId, taskTitle, soundUrl);
-      }
-    }
-  });
-
-  return () => {
-    receivedSubscription.remove();
-    responseSubscription.remove();
-  };
+// Get built-in sound list for UI
+export function getBuiltInSounds() {
+  return Object.keys(BUILT_IN_SOUNDS).map(key => ({
+    label: key.charAt(0).toUpperCase() + key.slice(1),
+    value: key,
+    url: BUILT_IN_SOUNDS[key],
+  }));
 }
 
 export async function requestExactAlarmPermission() {
@@ -320,13 +183,4 @@ export async function requestExactAlarmPermission() {
     }
   }
   return true;
-}
-
-// Get built-in sound URLs
-export function getBuiltInSounds() {
-  return Object.keys(BUILT_IN_SOUNDS).map(key => ({
-    label: key.charAt(0).toUpperCase() + key.slice(1),
-    value: key,
-    url: BUILT_IN_SOUNDS[key as keyof typeof BUILT_IN_SOUNDS],
-  }));
 }
