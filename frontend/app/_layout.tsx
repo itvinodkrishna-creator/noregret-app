@@ -26,17 +26,9 @@ function TabLayout() {
   const [initializing, setInitializing] = useState(false);
 
   useEffect(() => {
-    const initialize = async () => {
-      try {
-        await loadData();
-      } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setInitializing(false);
-      }
-    };
-    initialize();
-  }, [loadData]);
+    // Don't load data on initial mount to avoid blocking
+    setInitializing(false);
+  }, []);
 
   if (initializing || loading) {
     return (
