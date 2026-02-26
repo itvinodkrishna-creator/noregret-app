@@ -176,25 +176,23 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
 
           {/* Action Buttons */}
           <View style={styles.actions}>
-            <Pressable
+            <TouchableOpacity
               style={[styles.cancelBtn, { backgroundColor: theme.card }]}
-              onPress={() => {
-                console.log('Cancel pressed');
-                onClose();
-              }}
+              onPress={onClose}
+              activeOpacity={0.7}
             >
               <Text style={[styles.cancelBtnText, { color: theme.text }]}>Cancel</Text>
-            </Pressable>
-            <Pressable
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.selectBtn, { backgroundColor: theme.primary }]}
               onPress={() => {
-                console.log('Select Date pressed', selectedDate);
                 onSelect(selectedDate);
                 onClose();
               }}
+              activeOpacity={0.7}
             >
               <Text style={styles.selectBtnText}>Select Date</Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
