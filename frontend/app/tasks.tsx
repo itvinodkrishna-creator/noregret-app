@@ -161,18 +161,22 @@ export default function TasksScreen() {
     taskDateTime.setMilliseconds(0);
 
     const now = new Date();
+    const minutesUntil = Math.floor((taskDateTime.getTime() - now.getTime()) / (1000 * 60));
     
-    // Validate future date/time - must be at least 1 minute in the future
-    if (taskDateTime.getTime() <= now.getTime()) {
-      Alert.alert('Invalid Time', 'Please select a future date and time (at least 1 minute from now)');
+    console.log('🕐 Current time:', now.toISOString());
+    console.log('📅 Task time:', taskDateTime.toISOString());
+    console.log(`⏱️ Minutes until alarm: ${minutesUntil}`);
+    
+    // CRITICAL: Must be at least 2 minutes in the future
+    if (minutesUntil < 2) {
+      Alert.alert(
+        '❌ Invalid Time', 
+        `Please select a time at least 2 minutes in the future.\n\nCurrent: ${format(now, 'h:mm a')}\nSelected: ${format(taskDateTime, 'h:mm a')}\n\nPlease add at least 2 minutes.`
+      );
       return;
     }
 
-    // Calculate minutes until alarm
-    const minutesUntil = Math.floor((taskDateTime.getTime() - now.getTime()) / (1000 * 60));
-    
-    console.log(`📅 Scheduling alarm for: ${taskDateTime.toISOString()}`);
-    console.log(`⏱️ Alarm will trigger in ${minutesUntil} minutes`);
+    console.log(`✅ Valid future time: ${minutesUntil} minutes from now`);
 
     let notificationId: string | undefined;
 
@@ -180,13 +184,17 @@ export default function TasksScreen() {
     if (reminderEnabled && permissionGranted) {
       try {
         const taskId = Date.now().toString();
+        console.log(`📅 Scheduling notification for ${taskDateTime.toISOString()}`);
+        
         notificationId = await scheduleTaskNotification(
           taskId,
           title.trim(),
           taskDateTime,
           selectedRingtone
         );
-        console.log(`✅ Notification scheduled successfully. ID: ${notificationId}`);
+        
+        console.log(`✅ Notification scheduled! ID: ${notificationId}`);
+        console.log(`⏰ Alarm will trigger in exactly ${minutesUntil} minutes`);
       } catch (error) {
         console.error('❌ Error scheduling notification:', error);
         Alert.alert('Reminder Error', 'Could not schedule reminder. Task will be created without reminder.');
@@ -206,22 +214,25 @@ export default function TasksScreen() {
     // Reset form
     setTitle('');
     setDescription('');
-    setSelectedDate(new Date());
-    setSelectedTime(new Date());
+    // Set default time to current time + 5 minutes
+    const defaultTime = new Date();
+    defaultTime.setMinutes(defaultTime.getMinutes() + 5);
+    setSelectedDate(defaultTime);
+    setSelectedTime(defaultTime);
     setReminderEnabled(true);
     setSelectedRingtone('default');
     setShowAddModal(false);
     
     // Show success message with scheduled time
-    const timeStr = format(taskDateTime, 'MMM dd, yyyy h:mm a');
+    const timeStr = format(taskDateTime, 'MMM dd, h:mm a');
     Alert.alert(
-      'Task Created!', 
+      '✅ Task Created!', 
       reminderEnabled 
-        ? `Reminder scheduled for ${timeStr}\n(${minutesUntil} minutes from now)` 
+        ? `⏰ Reminder scheduled for:\n${timeStr}\n\n⏱️ Alarm will ring in ${minutesUntil} minutes` 
         : 'Task created without reminder'
     );
     
-    console.log('✅ Task created - alarm will NOT trigger now');
+    console.log('✅ Task saved - NO alarm now, will trigger at scheduled time');
   };
 
   const minDate = startOfToday();
