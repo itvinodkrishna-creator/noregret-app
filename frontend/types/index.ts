@@ -10,6 +10,7 @@ export interface Task {
   completedAt?: string;
   snoozedUntil?: string;
   notificationId?: string;
+  ringtone?: string;
 }
 
 export interface FoodPlan {
