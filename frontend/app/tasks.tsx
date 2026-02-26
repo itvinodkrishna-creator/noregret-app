@@ -368,11 +368,15 @@ export default function TasksScreen() {
       <Text style={[styles.label, { color: theme.text }]}>Date</Text>
       <TouchableOpacity
         style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
-        onPress={openDatePicker}
+        onPress={() => {
+          console.log('Date field pressed');
+          openDatePicker();
+        }}
+        activeOpacity={0.7}
       >
         <Ionicons name="calendar" size={20} color="#10B981" />
         <Text style={[styles.pickerText, { color: theme.text }]}>
-          {format(selectedDate, 'EEEE, MMM dd, yyyy')}
+          {format(selectedDate, 'dd-MM-yyyy')}
         </Text>
         <Ionicons name="chevron-down" size={20} color={theme.textSecondary} />
       </TouchableOpacity>
@@ -380,7 +384,11 @@ export default function TasksScreen() {
       <Text style={[styles.label, { color: theme.text }]}>Time</Text>
       <TouchableOpacity
         style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
-        onPress={openTimePicker}
+        onPress={() => {
+          console.log('Time field pressed');
+          openTimePicker();
+        }}
+        activeOpacity={0.7}
       >
         <Ionicons name="time" size={20} color="#F97316" />
         <Text style={[styles.pickerText, { color: theme.text }]}>
