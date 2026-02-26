@@ -4,14 +4,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { Task, CATEGORY_CONFIG } from '../types';
 import { format, parseISO } from 'date-fns';
+import { DatePickerModal, TimePickerModal } from './CustomPickers';
 
 interface TaskCardProps {
   task: Task;
   onComplete: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  onEditDate: () => void;
-  onEditTime: () => void;
+  onDateChange: (date: Date) => void;
+  onTimeChange: (time: Date) => void;
 }
 
 export const TaskCardWithActions: React.FC<TaskCardProps> = ({ 
@@ -19,16 +20,19 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
   onComplete, 
   onEdit,
   onDelete,
-  onEditDate,
-  onEditTime,
+  onDateChange,
+  onTimeChange,
 }) => {
   const { theme } = useTheme();
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   
   const isCompleted = task.status === 'completed';
-  const time = format(parseISO(task.time), 'h:mm a');
-  const date = format(parseISO(task.time), 'MMM dd');
+  const taskDate = parseISO(task.time);
+  const time = format(taskDate, 'h:mm a');
+  const date = format(taskDate, 'MMM dd');
   
   const categoryConfig = CATEGORY_CONFIG[task.category] || CATEGORY_CONFIG.Personal;
   const categoryColor = categoryConfig.color;
@@ -46,6 +50,22 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
   const handleEdit = () => {
     setShowMenu(false);
     onEdit();
+  };
+
+  const handleDateSelect = (newDate: Date) => {
+    // Keep the same time, just change the date
+    const updatedDate = new Date(newDate);
+    updatedDate.setHours(taskDate.getHours());
+    updatedDate.setMinutes(taskDate.getMinutes());
+    onDateChange(updatedDate);
+  };
+
+  const handleTimeSelect = (newTime: Date) => {
+    // Keep the same date, just change the time
+    const updatedTime = new Date(taskDate);
+    updatedTime.setHours(newTime.getHours());
+    updatedTime.setMinutes(newTime.getMinutes());
+    onTimeChange(updatedTime);
   };
 
   return (
@@ -91,13 +111,19 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
             </View>
             
             {/* Clickable Date */}
-            <TouchableOpacity style={[styles.dateTimeButton, { backgroundColor: theme.primary + '15' }]} onPress={onEditDate}>
+            <TouchableOpacity 
+              style={[styles.dateTimeButton, { backgroundColor: theme.primary + '15' }]} 
+              onPress={() => setShowDatePicker(true)}
+            >
               <Ionicons name="calendar" size={12} color={theme.primary} />
               <Text style={[styles.dateTimeText, { color: theme.primary }]}>{date}</Text>
             </TouchableOpacity>
             
             {/* Clickable Time */}
-            <TouchableOpacity style={[styles.dateTimeButton, { backgroundColor: theme.primary + '15' }]} onPress={onEditTime}>
+            <TouchableOpacity 
+              style={[styles.dateTimeButton, { backgroundColor: theme.primary + '15' }]} 
+              onPress={() => setShowTimePicker(true)}
+            >
               <Ionicons name="time" size={12} color={theme.primary} />
               <Text style={[styles.dateTimeText, { color: theme.primary }]}>{time}</Text>
             </TouchableOpacity>
@@ -118,31 +144,47 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
         </View>
       </View>
 
+      {/* Custom Date Picker Modal */}
+      <DatePickerModal
+        visible={showDatePicker}
+        value={taskDate}
+        onSelect={handleDateSelect}
+        onClose={() => setShowDatePicker(false)}
+      />
+
+      {/* Custom Time Picker Modal */}
+      <TimePickerModal
+        visible={showTimePicker}
+        value={taskDate}
+        onSelect={handleTimeSelect}
+        onClose={() => setShowTimePicker(false)}
+      />
+
       {/* Actions Menu Modal */}
       <Modal visible={showMenu} transparent animationType="fade" onRequestClose={() => setShowMenu(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowMenu(false)}>
           <View style={[styles.menuContainer, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.menuTitle, { color: theme.text }]}>{task.title}</Text>
+            <Text style={[styles.menuTitle, { color: theme.text }]} numberOfLines={1}>{task.title}</Text>
             
             <TouchableOpacity style={styles.menuItem} onPress={handleEdit}>
-              <Ionicons name="pencil" size={20} color={theme.primary} />
+              <Ionicons name="pencil" size={22} color={theme.primary} />
               <Text style={[styles.menuItemText, { color: theme.text }]}>Edit Task</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.menuItem} onPress={onEditDate}>
-              <Ionicons name="calendar" size={20} color="#10B981" />
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); setShowDatePicker(true); }}>
+              <Ionicons name="calendar" size={22} color="#10B981" />
               <Text style={[styles.menuItemText, { color: theme.text }]}>Change Date</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.menuItem} onPress={onEditTime}>
-              <Ionicons name="time" size={20} color="#F97316" />
+            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); setShowTimePicker(true); }}>
+              <Ionicons name="time" size={22} color="#F97316" />
               <Text style={[styles.menuItemText, { color: theme.text }]}>Change Time</Text>
             </TouchableOpacity>
             
             <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
             
             <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
-              <Ionicons name="trash" size={20} color="#EF4444" />
+              <Ionicons name="trash" size={22} color="#EF4444" />
               <Text style={[styles.menuItemText, { color: '#EF4444' }]}>Delete Task</Text>
             </TouchableOpacity>
             
@@ -283,7 +325,7 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: 16,
-    marginLeft: 12,
+    marginLeft: 14,
   },
   menuDivider: {
     height: 1,
