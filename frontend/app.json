@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "LifeTracker",
-    "slug": "lifetracker",
+    "name": "Noregret",
+    "slug": "noregret",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "lifetracker",
+    "scheme": "noregret",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -17,7 +17,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.lifetracker.app",
+      "bundleIdentifier": "com.noregret.app",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio",
@@ -32,7 +32,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0A0A0A"
       },
-      "package": "com.lifetracker.app",
+      "package": "com.noregret.app",
       "edgeToEdgeEnabled": true,
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
@@ -68,7 +68,7 @@
       "icon": "./assets/images/icon.png",
       "color": "#6366F1",
       "androidMode": "default",
-      "androidCollapsedTitle": "LifeTracker Reminder"
+      "androidCollapsedTitle": "Noregret Reminder"
     }
   }
 }
