@@ -1,24 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Platform, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Platform, Switch, Alert, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
 import { TaskCard } from '../components/TaskCard';
+import { Task, CATEGORY_CONFIG, CategoryType } from '../types';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { format, startOfToday } from 'date-fns';
+import { format, startOfToday, parseISO } from 'date-fns';
 import * as DocumentPicker from 'expo-document-picker';
-import { registerForPushNotificationsAsync, getBuiltInSounds } from '../utils/notifications';
+import { registerForPushNotificationsAsync } from '../utils/notifications';
 import { scheduleAlarm, cancelAlarmsForTask } from '../utils/alarmScheduler';
+import { RINGTONES, getRingtoneLabel, playClickSound } from '../utils/sounds';
 
-const categories = ['Work', 'Health', 'Food', 'Personal'] as const;
+const categories: CategoryType[] = ['Work', 'Health', 'Food', 'Personal'];
 
 export default function TasksScreen() {
   const { theme } = useTheme();
-  const { tasks, addTask, completeTask, loadData } = useAppStore();
+  const { tasks, addTask, updateTask, deleteTask, completeTask, loadData, preferences } = useAppStore();
   const [showAddModal, setShowAddModal] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [filter, setFilter] = useState<'all' | CategoryType>('all');
   const [permissionGranted, setPermissionGranted] = useState(false);
-  const [ringtones, setRingtones] = useState(getBuiltInSounds());
+  const [customRingtones, setCustomRingtones] = useState<{id: string; label: string; url: string}[]>([]);
   
   // Form state
   const [title, setTitle] = useState('');
@@ -33,7 +37,7 @@ export default function TasksScreen() {
     time.setMinutes(time.getMinutes() + 5);
     return time;
   });
-  const [selectedCategory, setSelectedCategory] = useState<typeof categories[number]>('Personal');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryType>('Personal');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(true);
@@ -45,6 +49,8 @@ export default function TasksScreen() {
     requestNotificationPermissions();
   }, []);
 
+  const allRingtones = [...RINGTONES, ...customRingtones];
+
   const pickAudioFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -55,16 +61,16 @@ export default function TasksScreen() {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const audio = result.assets[0];
         const customSound = {
+          id: `custom_${Date.now()}`,
           label: `Custom: ${audio.name}`,
-          value: audio.uri,
           url: audio.uri,
         };
         
-        if (!ringtones.find(r => r.value === audio.uri)) {
-          setRingtones([...ringtones, customSound]);
+        if (!customRingtones.find(r => r.url === audio.uri)) {
+          setCustomRingtones([...customRingtones, customSound]);
         }
         
-        setSelectedRingtone(audio.uri);
+        setSelectedRingtone(customSound.id);
         Alert.alert('Success', `Selected: ${audio.name}`);
       }
     } catch (error) {
@@ -79,21 +85,35 @@ export default function TasksScreen() {
       setPermissionGranted(true);
     } catch (error) {
       console.error('Error requesting notification permissions:', error);
-      setPermissionGranted(true); // Allow on web
+      setPermissionGranted(true);
     }
   };
 
   const filteredTasks = tasks
-    .filter(task => filter === 'all' || task.status === filter)
+    .filter(task => filter === 'all' || task.category === filter)
     .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
+  const resetForm = () => {
+    setTitle('');
+    setDescription('');
+    const defaultTime = new Date();
+    defaultTime.setMinutes(defaultTime.getMinutes() + 5);
+    setSelectedDate(defaultTime);
+    setSelectedTime(defaultTime);
+    setSelectedCategory('Personal');
+    setReminderEnabled(true);
+    setSelectedRingtone('default');
+    setShowRingtonePicker(false);
+  };
+
   const handleAddTask = async () => {
+    playClickSound(preferences.soundEnabled);
+    
     if (!title.trim()) {
       Alert.alert('Error', 'Please enter a task title');
       return;
     }
 
-    // Combine date and time
     const taskDateTime = new Date(selectedDate);
     taskDateTime.setHours(selectedTime.getHours());
     taskDateTime.setMinutes(selectedTime.getMinutes());
@@ -104,16 +124,10 @@ export default function TasksScreen() {
     const msUntilAlarm = taskDateTime.getTime() - now.getTime();
     const minutesUntil = Math.floor(msUntilAlarm / (1000 * 60));
     
-    console.log('🕐 Creating task with alarm:');
-    console.log(`   Current time: ${now.toLocaleTimeString()}`);
-    console.log(`   Task time: ${taskDateTime.toLocaleTimeString()}`);
-    console.log(`   Minutes until alarm: ${minutesUntil}`);
-    
-    // CRITICAL: Must be at least 1 minute in the future
     if (msUntilAlarm < 60000) {
       Alert.alert(
         '❌ Invalid Time', 
-        `Please select a time at least 1 minute in the future.\n\nCurrent: ${format(now, 'h:mm a')}\nSelected: ${format(taskDateTime, 'h:mm a')}`
+        `Please select a time at least 1 minute in the future.`
       );
       return;
     }
@@ -121,11 +135,8 @@ export default function TasksScreen() {
     let alarmId: string | undefined;
     const taskId = Date.now().toString();
 
-    // Schedule alarm using our custom scheduler (works on web!)
     if (reminderEnabled) {
       try {
-        console.log('📅 Scheduling alarm...');
-        
         alarmId = scheduleAlarm(
           taskId,
           title.trim(),
@@ -133,16 +144,11 @@ export default function TasksScreen() {
           selectedRingtone,
           description.trim()
         );
-        
-        console.log(`✅ Alarm scheduled! ID: ${alarmId}`);
-        console.log(`⏰ Will trigger in ${minutesUntil} minutes`);
       } catch (error) {
-        console.error('❌ Error scheduling alarm:', error);
-        Alert.alert('Alarm Error', 'Could not schedule alarm. Task will be created without reminder.');
+        console.error('Error scheduling alarm:', error);
       }
     }
 
-    // Save task
     await addTask({
       title: title.trim(),
       description: description.trim(),
@@ -153,75 +159,390 @@ export default function TasksScreen() {
       notificationId: alarmId,
     });
 
-    // Reset form with future default time
-    setTitle('');
-    setDescription('');
-    const defaultTime = new Date();
-    defaultTime.setMinutes(defaultTime.getMinutes() + 5);
-    setSelectedDate(defaultTime);
-    setSelectedTime(defaultTime);
-    setReminderEnabled(true);
-    setSelectedRingtone('default');
+    resetForm();
     setShowAddModal(false);
     
-    // Show success message
     const timeStr = format(taskDateTime, 'MMM dd, h:mm a');
     Alert.alert(
       '✅ Task Created!', 
       reminderEnabled 
-        ? `⏰ Alarm set for:\n${timeStr}\n\n⏱️ Will ring in ${minutesUntil} minute${minutesUntil !== 1 ? 's' : ''}` 
+        ? `⏰ Alarm set for ${timeStr}` 
         : 'Task created without reminder'
     );
+  };
+
+  const handleEditTask = async () => {
+    playClickSound(preferences.soundEnabled);
     
-    console.log('✅ Task saved successfully');
+    if (!selectedTask || !title.trim()) {
+      Alert.alert('Error', 'Please enter a task title');
+      return;
+    }
+
+    const taskDateTime = new Date(selectedDate);
+    taskDateTime.setHours(selectedTime.getHours());
+    taskDateTime.setMinutes(selectedTime.getMinutes());
+    taskDateTime.setSeconds(0);
+    taskDateTime.setMilliseconds(0);
+
+    // Cancel old alarm if exists
+    if (selectedTask.notificationId) {
+      cancelAlarmsForTask(selectedTask._id || '');
+    }
+
+    let alarmId: string | undefined;
+
+    if (reminderEnabled) {
+      const now = new Date();
+      const msUntilAlarm = taskDateTime.getTime() - now.getTime();
+      
+      if (msUntilAlarm >= 60000) {
+        try {
+          alarmId = scheduleAlarm(
+            selectedTask._id || '',
+            title.trim(),
+            taskDateTime,
+            selectedRingtone,
+            description.trim()
+          );
+        } catch (error) {
+          console.error('Error scheduling alarm:', error);
+        }
+      }
+    }
+
+    await updateTask(selectedTask._id || '', {
+      title: title.trim(),
+      description: description.trim(),
+      time: taskDateTime.toISOString(),
+      category: selectedCategory,
+      reminderEnabled,
+      ringtone: selectedRingtone,
+      notificationId: alarmId,
+    });
+
+    setShowEditModal(false);
+    setSelectedTask(null);
+    resetForm();
+    Alert.alert('✅ Task Updated!');
+  };
+
+  const handleDeleteTask = (task: Task) => {
+    playClickSound(preferences.soundEnabled);
+    
+    Alert.alert(
+      'Delete Task',
+      'Are you sure you want to delete this task?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            if (task._id) {
+              cancelAlarmsForTask(task._id);
+              await deleteTask(task._id);
+            }
+          }
+        },
+      ]
+    );
+  };
+
+  const openEditModal = (task: Task) => {
+    playClickSound(preferences.soundEnabled);
+    setSelectedTask(task);
+    setTitle(task.title);
+    setDescription(task.description || '');
+    setSelectedDate(parseISO(task.time));
+    setSelectedTime(parseISO(task.time));
+    setSelectedCategory(task.category);
+    setReminderEnabled(task.reminderEnabled);
+    setSelectedRingtone(task.ringtone || 'default');
+    setShowEditModal(true);
+  };
+
+  const handleCompleteTask = (taskId: string) => {
+    playClickSound(preferences.soundEnabled);
+    completeTask(taskId);
+    cancelAlarmsForTask(taskId);
   };
 
   const minDate = startOfToday();
 
+  const renderTaskForm = (isEdit: boolean) => (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      {/* Title Input */}
+      <Text style={[styles.label, { color: theme.text }]}>Title *</Text>
+      <TextInput
+        style={[styles.input, { backgroundColor: theme.card, color: theme.text, borderColor: theme.border }]}
+        value={title}
+        onChangeText={setTitle}
+        placeholder="Enter task title"
+        placeholderTextColor={theme.textSecondary}
+      />
+
+      {/* Description Input */}
+      <Text style={[styles.label, { color: theme.text }]}>Description</Text>
+      <TextInput
+        style={[styles.input, styles.textArea, { backgroundColor: theme.card, color: theme.text, borderColor: theme.border }]}
+        value={description}
+        onChangeText={setDescription}
+        placeholder="Enter task description"
+        placeholderTextColor={theme.textSecondary}
+        multiline
+        numberOfLines={3}
+      />
+
+      {/* Date Picker */}
+      <Text style={[styles.label, { color: theme.text }]}>Date</Text>
+      <TouchableOpacity
+        style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+        onPress={() => setShowDatePicker(true)}
+      >
+        <Ionicons name="calendar-outline" size={20} color={theme.text} />
+        <Text style={[styles.pickerText, { color: theme.text }]}>
+          {format(selectedDate, 'MMM dd, yyyy')}
+        </Text>
+      </TouchableOpacity>
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          minimumDate={minDate}
+          onChange={(event, date) => {
+            setShowDatePicker(Platform.OS === 'ios');
+            if (date) setSelectedDate(date);
+          }}
+        />
+      )}
+
+      {/* Time Picker */}
+      <Text style={[styles.label, { color: theme.text }]}>Time</Text>
+      <TouchableOpacity
+        style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+        onPress={() => setShowTimePicker(true)}
+      >
+        <Ionicons name="time-outline" size={20} color={theme.text} />
+        <Text style={[styles.pickerText, { color: theme.text }]}>
+          {format(selectedTime, 'h:mm a')}
+        </Text>
+      </TouchableOpacity>
+
+      {showTimePicker && (
+        <DateTimePicker
+          value={selectedTime}
+          mode="time"
+          display="default"
+          onChange={(event, time) => {
+            setShowTimePicker(Platform.OS === 'ios');
+            if (time) setSelectedTime(time);
+          }}
+        />
+      )}
+
+      {/* Category Picker */}
+      <Text style={[styles.label, { color: theme.text }]}>Category</Text>
+      <View style={styles.categoryGrid}>
+        {categories.map(category => {
+          const config = CATEGORY_CONFIG[category];
+          const isSelected = selectedCategory === category;
+          return (
+            <TouchableOpacity
+              key={category}
+              style={[
+                styles.categoryButton,
+                { 
+                  backgroundColor: isSelected ? config.color : theme.card,
+                  borderColor: config.color,
+                },
+              ]}
+              onPress={() => {
+                playClickSound(preferences.soundEnabled);
+                setSelectedCategory(category);
+              }}
+            >
+              <Ionicons 
+                name={config.icon as any} 
+                size={16} 
+                color={isSelected ? '#FFFFFF' : config.color} 
+              />
+              <Text
+                style={[
+                  styles.categoryText,
+                  { color: isSelected ? '#FFFFFF' : config.color },
+                ]}
+              >
+                {category}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Reminder Toggle */}
+      <View style={styles.reminderRow}>
+        <View style={styles.reminderLabel}>
+          <Ionicons name="notifications" size={20} color={theme.primary} />
+          <Text style={[styles.reminderText, { color: theme.text }]}>
+            Enable Alarm
+          </Text>
+        </View>
+        <Switch
+          value={reminderEnabled}
+          onValueChange={(val) => {
+            playClickSound(preferences.soundEnabled);
+            setReminderEnabled(val);
+          }}
+          trackColor={{ false: theme.border, true: theme.primary }}
+          thumbColor="#FFFFFF"
+        />
+      </View>
+
+      {/* Ringtone Picker */}
+      {reminderEnabled && (
+        <>
+          <Text style={[styles.label, { color: theme.text }]}>Alarm Sound</Text>
+          <TouchableOpacity
+            style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+            onPress={() => setShowRingtonePicker(!showRingtonePicker)}
+          >
+            <Ionicons name="musical-notes" size={20} color={theme.text} />
+            <Text style={[styles.pickerText, { color: theme.text, flex: 1 }]}>
+              {allRingtones.find(r => r.id === selectedRingtone)?.label || 'Default Alarm'}
+            </Text>
+            <Ionicons name={showRingtonePicker ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+
+          {showRingtonePicker && (
+            <View style={[styles.ringtoneList, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              {allRingtones.map((ringtone, index) => (
+                <TouchableOpacity
+                  key={ringtone.id}
+                  style={[
+                    styles.ringtoneItem,
+                    selectedRingtone === ringtone.id && { backgroundColor: theme.primary + '20' },
+                    index < allRingtones.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
+                  ]}
+                  onPress={() => {
+                    playClickSound(preferences.soundEnabled);
+                    setSelectedRingtone(ringtone.id);
+                    setShowRingtonePicker(false);
+                  }}
+                >
+                  <Text style={[styles.ringtoneText, { color: theme.text }]}>
+                    {ringtone.label}
+                  </Text>
+                  {selectedRingtone === ringtone.id && (
+                    <Ionicons name="checkmark" size={20} color={theme.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+              
+              <TouchableOpacity
+                style={[styles.uploadButton, { borderTopWidth: 2, borderTopColor: theme.border }]}
+                onPress={pickAudioFile}
+              >
+                <Ionicons name="cloud-upload" size={20} color={theme.primary} />
+                <Text style={[styles.uploadButtonText, { color: theme.primary }]}>
+                  Upload Custom Audio
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </>
+      )}
+    </ScrollView>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Header with Add Button */}
+      {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.text }]}>Tasks</Text>
         <TouchableOpacity 
-          onPress={() => setShowAddModal(true)}
+          onPress={() => {
+            playClickSound(preferences.soundEnabled);
+            resetForm();
+            setShowAddModal(true);
+          }}
           style={[styles.addButton, { backgroundColor: theme.primary }]}
         >
           <Ionicons name="add" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
-      {/* Quick Add Task Button at top */}
+      {/* Quick Add Button */}
       <TouchableOpacity 
         style={[styles.quickAddButton, { backgroundColor: theme.primary + '15', borderColor: theme.primary }]}
-        onPress={() => setShowAddModal(true)}
+        onPress={() => {
+          playClickSound(preferences.soundEnabled);
+          resetForm();
+          setShowAddModal(true);
+        }}
       >
         <Ionicons name="add-circle" size={24} color={theme.primary} />
         <Text style={[styles.quickAddText, { color: theme.primary }]}>Add New Task</Text>
       </TouchableOpacity>
 
-      {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
-        {(['all', 'pending', 'completed'] as const).map(filterOption => (
-          <TouchableOpacity
-            key={filterOption}
-            style={[
-              styles.filterTab,
-              filter === filterOption && { backgroundColor: theme.primary },
-            ]}
-            onPress={() => setFilter(filterOption)}
-          >
-            <Text
+      {/* Category Filter */}
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={false} 
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterContainer}
+      >
+        <TouchableOpacity
+          style={[
+            styles.filterTab,
+            filter === 'all' && { backgroundColor: theme.primary },
+          ]}
+          onPress={() => {
+            playClickSound(preferences.soundEnabled);
+            setFilter('all');
+          }}
+        >
+          <Text style={[
+            styles.filterText,
+            { color: filter === 'all' ? '#FFFFFF' : theme.textSecondary },
+          ]}>
+            All
+          </Text>
+        </TouchableOpacity>
+        
+        {categories.map(category => {
+          const config = CATEGORY_CONFIG[category];
+          const isActive = filter === category;
+          return (
+            <TouchableOpacity
+              key={category}
               style={[
-                styles.filterText,
-                { color: filter === filterOption ? '#FFFFFF' : theme.textSecondary },
+                styles.filterTab,
+                isActive && { backgroundColor: config.color },
+                !isActive && { borderWidth: 1, borderColor: config.color },
               ]}
+              onPress={() => {
+                playClickSound(preferences.soundEnabled);
+                setFilter(category);
+              }}
             >
-              {filterOption.charAt(0).toUpperCase() + filterOption.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+              <Ionicons 
+                name={config.icon as any} 
+                size={14} 
+                color={isActive ? '#FFFFFF' : config.color} 
+              />
+              <Text style={[
+                styles.filterText,
+                { color: isActive ? '#FFFFFF' : config.color, marginLeft: 6 },
+              ]}>
+                {category}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
       {/* Tasks List */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -229,7 +550,10 @@ export default function TasksScreen() {
           <View style={[styles.emptyContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <Ionicons name="clipboard-outline" size={64} color={theme.textSecondary} />
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No tasks found</Text>
-            <TouchableOpacity onPress={() => setShowAddModal(true)}>
+            <TouchableOpacity onPress={() => {
+              playClickSound(preferences.soundEnabled);
+              setShowAddModal(true);
+            }}>
               <Text style={[styles.addLinkText, { color: theme.primary }]}>Add a new task</Text>
             </TouchableOpacity>
           </View>
@@ -238,13 +562,9 @@ export default function TasksScreen() {
             <TaskCard
               key={task._id}
               task={task}
-              onPress={() => {}}
-              onComplete={() => {
-                if (task._id) {
-                  completeTask(task._id);
-                  cancelAlarmsForTask(task._id);
-                }
-              }}
+              onPress={() => openEditModal(task)}
+              onComplete={() => task._id && handleCompleteTask(task._id)}
+              onLongPress={() => handleDeleteTask(task)}
             />
           ))
         )}
@@ -266,178 +586,7 @@ export default function TasksScreen() {
                 <Ionicons name="close" size={28} color={theme.text} />
               </TouchableOpacity>
             </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Title Input */}
-              <Text style={[styles.label, { color: theme.text }]}>Title *</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: theme.card, color: theme.text, borderColor: theme.border }]}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Enter task title"
-                placeholderTextColor={theme.textSecondary}
-              />
-
-              {/* Description Input */}
-              <Text style={[styles.label, { color: theme.text }]}>Description</Text>
-              <TextInput
-                style={[styles.input, styles.textArea, { backgroundColor: theme.card, color: theme.text, borderColor: theme.border }]}
-                value={description}
-                onChangeText={setDescription}
-                placeholder="Enter task description"
-                placeholderTextColor={theme.textSecondary}
-                multiline
-                numberOfLines={3}
-              />
-
-              {/* Date Picker */}
-              <Text style={[styles.label, { color: theme.text }]}>Date</Text>
-              <TouchableOpacity
-                style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Ionicons name="calendar-outline" size={20} color={theme.text} />
-                <Text style={[styles.pickerText, { color: theme.text }]}>
-                  {format(selectedDate, 'MMM dd, yyyy')}
-                </Text>
-              </TouchableOpacity>
-
-              {showDatePicker && (
-                <DateTimePicker
-                  value={selectedDate}
-                  mode="date"
-                  display="default"
-                  minimumDate={minDate}
-                  onChange={(event, date) => {
-                    setShowDatePicker(Platform.OS === 'ios');
-                    if (date) setSelectedDate(date);
-                  }}
-                />
-              )}
-
-              {/* Time Picker */}
-              <Text style={[styles.label, { color: theme.text }]}>Time</Text>
-              <TouchableOpacity
-                style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
-                onPress={() => setShowTimePicker(true)}
-              >
-                <Ionicons name="time-outline" size={20} color={theme.text} />
-                <Text style={[styles.pickerText, { color: theme.text }]}>
-                  {format(selectedTime, 'h:mm a')}
-                </Text>
-              </TouchableOpacity>
-
-              {showTimePicker && (
-                <DateTimePicker
-                  value={selectedTime}
-                  mode="time"
-                  display="default"
-                  onChange={(event, time) => {
-                    setShowTimePicker(Platform.OS === 'ios');
-                    if (time) setSelectedTime(time);
-                  }}
-                />
-              )}
-
-              {/* Category Picker */}
-              <Text style={[styles.label, { color: theme.text }]}>Category</Text>
-              <View style={styles.categoryGrid}>
-                {categories.map(category => (
-                  <TouchableOpacity
-                    key={category}
-                    style={[
-                      styles.categoryButton,
-                      { 
-                        backgroundColor: selectedCategory === category ? theme.primary : theme.card,
-                        borderColor: theme.border,
-                      },
-                    ]}
-                    onPress={() => setSelectedCategory(category)}
-                  >
-                    <Text
-                      style={[
-                        styles.categoryText,
-                        { color: selectedCategory === category ? '#FFFFFF' : theme.text },
-                      ]}
-                    >
-                      {category}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Reminder Toggle */}
-              <View style={styles.reminderRow}>
-                <View style={styles.reminderLabel}>
-                  <Ionicons name="notifications" size={20} color={theme.primary} />
-                  <Text style={[styles.reminderText, { color: theme.text }]}>
-                    Enable Alarm
-                  </Text>
-                </View>
-                <Switch
-                  value={reminderEnabled}
-                  onValueChange={setReminderEnabled}
-                  trackColor={{ false: theme.border, true: theme.primary }}
-                  thumbColor={reminderEnabled ? '#FFFFFF' : theme.textSecondary}
-                />
-              </View>
-
-              {/* Ringtone Picker */}
-              {reminderEnabled && (
-                <>
-                  <Text style={[styles.label, { color: theme.text }]}>Choose Alarm Sound</Text>
-                  <TouchableOpacity
-                    style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
-                    onPress={() => setShowRingtonePicker(!showRingtonePicker)}
-                  >
-                    <Ionicons name="musical-notes" size={20} color={theme.text} />
-                    <Text style={[styles.pickerText, { color: theme.text, flex: 1 }]}>
-                      {ringtones.find(r => r.value === selectedRingtone)?.label || 'Default'}
-                    </Text>
-                    <Ionicons name={showRingtonePicker ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
-                  </TouchableOpacity>
-
-                  {showRingtonePicker && (
-                    <View style={[styles.ringtoneList, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                      {ringtones.map((ringtone, index) => (
-                        <TouchableOpacity
-                          key={ringtone.value}
-                          style={[
-                            styles.ringtoneItem,
-                            selectedRingtone === ringtone.value && { backgroundColor: theme.primary + '20' },
-                            index < ringtones.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
-                          ]}
-                          onPress={() => {
-                            setSelectedRingtone(ringtone.value);
-                            setShowRingtonePicker(false);
-                          }}
-                        >
-                          <Text style={[styles.ringtoneText, { color: theme.text }]}>
-                            {ringtone.label}
-                          </Text>
-                          {selectedRingtone === ringtone.value && (
-                            <Ionicons name="checkmark" size={20} color={theme.primary} />
-                          )}
-                        </TouchableOpacity>
-                      ))}
-                      
-                      {/* Upload Audio Button */}
-                      <TouchableOpacity
-                        style={[styles.uploadButton, { borderTopWidth: 2, borderTopColor: theme.border }]}
-                        onPress={pickAudioFile}
-                      >
-                        <Ionicons name="cloud-upload" size={20} color={theme.primary} />
-                        <Text style={[styles.uploadButtonText, { color: theme.primary }]}>
-                          Upload Custom Audio
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </>
-              )}
-            </ScrollView>
-
-            {/* Action Buttons */}
+            {renderTaskForm(false)}
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.cancelButton, { backgroundColor: theme.card }]}
@@ -450,6 +599,49 @@ export default function TasksScreen() {
                 onPress={handleAddTask}
               >
                 <Text style={styles.saveButtonText}>Add Task</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Task Modal */}
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Task</Text>
+              <TouchableOpacity onPress={() => setShowEditModal(false)}>
+                <Ionicons name="close" size={28} color={theme.text} />
+              </TouchableOpacity>
+            </View>
+            {renderTaskForm(true)}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.deleteButton, { backgroundColor: '#EF4444' + '20' }]}
+                onPress={() => {
+                  setShowEditModal(false);
+                  if (selectedTask) handleDeleteTask(selectedTask);
+                }}
+              >
+                <Ionicons name="trash-outline" size={20} color="#EF4444" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.cancelButton, { backgroundColor: theme.card, flex: 1 }]}
+                onPress={() => setShowEditModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: theme.text }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveButton, { backgroundColor: theme.primary, flex: 1 }]}
+                onPress={handleEditTask}
+              >
+                <Text style={styles.saveButtonText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -498,16 +690,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 8,
   },
-  filterContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
+  filterScroll: {
+    maxHeight: 50,
     marginBottom: 16,
   },
-  filterTab: {
+  filterContainer: {
     paddingHorizontal: 20,
+    gap: 10,
+  },
+  filterTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    marginRight: 12,
   },
   filterText: {
     fontSize: 14,
@@ -585,18 +781,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginTop: 8,
+    gap: 10,
   },
   categoryButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 20,
-    marginRight: 12,
-    marginBottom: 12,
-    borderWidth: 1,
+    borderWidth: 2,
   },
   categoryText: {
     fontSize: 14,
     fontWeight: '600',
+    marginLeft: 6,
   },
   reminderRow: {
     flexDirection: 'row',
@@ -619,25 +817,26 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 8,
     overflow: 'hidden',
+    maxHeight: 250,
   },
   ringtoneItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
+    padding: 14,
   },
   ringtoneText: {
-    fontSize: 16,
+    fontSize: 15,
   },
   uploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    padding: 14,
     backgroundColor: 'transparent',
   },
   uploadButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     marginLeft: 8,
   },
@@ -645,6 +844,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 24,
     gap: 12,
+  },
+  deleteButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelButton: {
     flex: 1,
