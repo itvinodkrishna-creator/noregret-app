@@ -434,6 +434,17 @@ export default function TasksScreen() {
                           )}
                         </TouchableOpacity>
                       ))}
+                      
+                      {/* Upload Audio Button */}
+                      <TouchableOpacity
+                        style={[styles.uploadButton, { borderTopWidth: 2, borderTopColor: theme.border }]}
+                        onPress={pickAudioFile}
+                      >
+                        <Ionicons name="cloud-upload" size={20} color={theme.primary} />
+                        <Text style={[styles.uploadButtonText, { color: theme.primary }]}>
+                          Upload Custom Audio
+                        </Text>
+                      </TouchableOpacity>
                     </View>
                   )}
                 </>
