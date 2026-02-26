@@ -707,55 +707,6 @@ export default function TasksScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Quick Date Picker Modal */}
-      {showQuickDatePicker && quickEditTask && (
-        <Modal visible={true} transparent animationType="fade">
-          <View style={styles.pickerModalOverlay}>
-            <View style={[styles.pickerModalContent, { backgroundColor: theme.surface }]}>
-              <Text style={[styles.pickerModalTitle, { color: theme.text }]}>Select Date</Text>
-              <DateTimePicker
-                value={selectedDate}
-                mode="date"
-                display="spinner"
-                minimumDate={minDate}
-                onChange={handleQuickDateChange}
-                style={{ height: 150 }}
-              />
-              <TouchableOpacity
-                style={[styles.pickerModalButton, { backgroundColor: theme.primary }]}
-                onPress={() => { setShowQuickDatePicker(false); setQuickEditTask(null); }}
-              >
-                <Text style={styles.pickerModalButtonText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {/* Quick Time Picker Modal */}
-      {showQuickTimePicker && quickEditTask && (
-        <Modal visible={true} transparent animationType="fade">
-          <View style={styles.pickerModalOverlay}>
-            <View style={[styles.pickerModalContent, { backgroundColor: theme.surface }]}>
-              <Text style={[styles.pickerModalTitle, { color: theme.text }]}>Select Time</Text>
-              <DateTimePicker
-                value={selectedTime}
-                mode="time"
-                display="spinner"
-                onChange={handleQuickTimeChange}
-                style={{ height: 150 }}
-              />
-              <TouchableOpacity
-                style={[styles.pickerModalButton, { backgroundColor: theme.primary }]}
-                onPress={() => { setShowQuickTimePicker(false); setQuickEditTask(null); }}
-              >
-                <Text style={styles.pickerModalButtonText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-      )}
-
       {/* Add Task Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent={true} onRequestClose={() => setShowAddModal(false)}>
         <View style={styles.modalOverlay}>
