@@ -7,18 +7,20 @@ import { TaskCard } from '../components/TaskCard';
 import { StatsCard } from '../components/StatsCard';
 import { router } from 'expo-router';
 import { format } from 'date-fns';
+import { CATEGORY_CONFIG } from '../types';
+import { playClickSound } from '../utils/sounds';
 
 export default function Dashboard() {
-  const { theme, isDark, toggleTheme } = useTheme();
+  const { theme, isDark } = useTheme();
   const { 
     tasks, 
     foodPlans, 
     stats, 
+    preferences,
     loadData, 
     completeTask, 
     getTodayTasks, 
     getUpcomingTasks,
-    getCompletionRate,
     loading 
   } = useAppStore();
 
@@ -34,6 +36,11 @@ export default function Dashboard() {
     setRefreshing(false);
   }, []);
 
+  const handlePress = (action: () => void) => {
+    playClickSound(preferences.soundEnabled);
+    action();
+  };
+
   const todayTasks = getTodayTasks();
   const upcomingTasks = getUpcomingTasks().slice(0, 3);
   const completedToday = todayTasks.filter(t => t.status === 'completed').length;
@@ -42,30 +49,39 @@ export default function Dashboard() {
   const todayDate = format(new Date(), 'yyyy-MM-dd');
   const todayFoodPlans = foodPlans.filter(fp => fp.date === todayDate);
 
+  // Get category counts
+  const categoryCounts = Object.keys(CATEGORY_CONFIG).map(cat => ({
+    category: cat,
+    count: tasks.filter(t => t.category === cat && t.status === 'pending').length,
+    color: CATEGORY_CONFIG[cat as keyof typeof CATEGORY_CONFIG].color,
+    icon: CATEGORY_CONFIG[cat as keyof typeof CATEGORY_CONFIG].icon,
+  }));
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={[styles.greeting, { color: theme.textSecondary }]}>Welcome back!</Text>
-          <Text style={[styles.title, { color: theme.text }]}>LifeTracker</Text>
+        <View style={styles.headerLeft}>
+          <View style={styles.logoContainer}>
+            <Ionicons name="shield-checkmark" size={28} color={theme.primary} />
+          </View>
+          <View>
+            <Text style={[styles.greeting, { color: theme.textSecondary }]}>Welcome to</Text>
+            <Text style={[styles.title, { color: theme.text }]}>Noregret</Text>
+          </View>
         </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity 
-            onPress={() => router.push('/tasks')}
-            style={[styles.addTaskButton, { backgroundColor: theme.primary }]}
+            onPress={() => handlePress(() => router.push('/tasks'))}
+            style={[styles.headerButton, { backgroundColor: theme.primary }]}
           >
             <Ionicons name="add" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <TouchableOpacity 
-            onPress={toggleTheme}
-            style={[styles.themeButton, { backgroundColor: theme.card }]}
+            onPress={() => handlePress(() => router.push('/settings'))}
+            style={[styles.headerButton, { backgroundColor: theme.card }]}
           >
-            <Ionicons 
-              name={isDark ? 'sunny' : 'moon'} 
-              size={24} 
-              color={theme.text} 
-            />
+            <Ionicons name="settings-outline" size={22} color={theme.text} />
           </TouchableOpacity>
         </View>
       </View>
@@ -77,6 +93,28 @@ export default function Dashboard() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        {/* Daily Progress */}
+        <View style={[styles.progressCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={styles.progressHeader}>
+            <Text style={[styles.progressTitle, { color: theme.text }]}>Today's Progress</Text>
+            <Text style={[styles.progressPercent, { color: theme.primary }]}>{todayProgress}%</Text>
+          </View>
+          <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
+            <View 
+              style={[
+                styles.progressFill, 
+                { 
+                  backgroundColor: theme.primary,
+                  width: `${todayProgress}%` 
+                }
+              ]} 
+            />
+          </View>
+          <Text style={[styles.progressText, { color: theme.textSecondary }]}>
+            {completedToday} of {todayTasks.length} tasks completed
+          </Text>
+        </View>
+
         {/* Stats Overview */}
         <View style={styles.statsRow}>
           <StatsCard 
@@ -99,11 +137,27 @@ export default function Dashboard() {
           />
         </View>
 
+        {/* Categories Quick View */}
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Categories</Text>
+        <View style={styles.categoriesRow}>
+          {categoryCounts.map(cat => (
+            <TouchableOpacity 
+              key={cat.category}
+              style={[styles.categoryCard, { backgroundColor: cat.color + '15', borderColor: cat.color }]}
+              onPress={() => handlePress(() => router.push('/tasks'))}
+            >
+              <Ionicons name={cat.icon as any} size={20} color={cat.color} />
+              <Text style={[styles.categoryCount, { color: cat.color }]}>{cat.count}</Text>
+              <Text style={[styles.categoryLabel, { color: theme.textSecondary }]}>{cat.category}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {/* Today's Tasks */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>Today's Tasks</Text>
-            <TouchableOpacity onPress={() => router.push('/tasks')}>
+            <TouchableOpacity onPress={() => handlePress(() => router.push('/tasks'))}>
               <Text style={[styles.seeAll, { color: theme.primary }]}>See All</Text>
             </TouchableOpacity>
           </View>
@@ -112,7 +166,7 @@ export default function Dashboard() {
             <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <Ionicons name="checkmark-done" size={48} color={theme.textSecondary} />
               <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No tasks for today</Text>
-              <TouchableOpacity onPress={() => router.push('/tasks')}>
+              <TouchableOpacity onPress={() => handlePress(() => router.push('/tasks'))}>
                 <Text style={[styles.addText, { color: theme.primary }]}>Add your first task</Text>
               </TouchableOpacity>
             </View>
@@ -121,8 +175,11 @@ export default function Dashboard() {
               <TaskCard
                 key={task._id}
                 task={task}
-                onPress={() => router.push(`/task-detail?id=${task._id}`)}
-                onComplete={() => task._id && completeTask(task._id)}
+                onPress={() => {}}
+                onComplete={() => {
+                  playClickSound(preferences.soundEnabled);
+                  task._id && completeTask(task._id);
+                }}
               />
             ))
           )}
@@ -136,47 +193,15 @@ export default function Dashboard() {
               <TaskCard
                 key={task._id}
                 task={task}
-                onPress={() => router.push(`/task-detail?id=${task._id}`)}
-                onComplete={() => task._id && completeTask(task._id)}
+                onPress={() => {}}
+                onComplete={() => {
+                  playClickSound(preferences.soundEnabled);
+                  task._id && completeTask(task._id);
+                }}
               />
             ))}
           </View>
         )}
-
-        {/* Today's Food Plan */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Today's Meals</Text>
-            <TouchableOpacity onPress={() => router.push('/food')}>
-              <Text style={[styles.seeAll, { color: theme.primary }]}>See All</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {todayFoodPlans.length === 0 ? (
-            <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Ionicons name="restaurant" size={48} color={theme.textSecondary} />
-              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No meals planned</Text>
-            </View>
-          ) : (
-            <View style={[styles.foodCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              {todayFoodPlans.map((fp, index) => (
-                <View key={fp._id} style={styles.foodRow}>
-                  <Ionicons 
-                    name={fp.eaten ? 'checkmark-circle' : 'ellipse-outline'} 
-                    size={20} 
-                    color={fp.eaten ? theme.success : theme.textSecondary} 
-                  />
-                  <Text style={[styles.foodMeal, { color: theme.text }]}>
-                    {fp.mealType.charAt(0).toUpperCase() + fp.mealType.slice(1)}
-                  </Text>
-                  <Text style={[styles.foodItems, { color: theme.textSecondary }]} numberOfLines={1}>
-                    {fp.items.join(', ')}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -196,30 +221,36 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 20,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
   greeting: {
-    fontSize: 14,
-    marginBottom: 4,
+    fontSize: 12,
+    marginBottom: 2,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
   },
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
-  addTaskButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  themeButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -227,10 +258,63 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
+  progressCard: {
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  progressTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  progressPercent: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 13,
+  },
   statsRow: {
     flexDirection: 'row',
     marginBottom: 24,
     marginHorizontal: -6,
+  },
+  categoriesRow: {
+    flexDirection: 'row',
+    marginBottom: 24,
+    gap: 10,
+  },
+  categoryCard: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  categoryCount: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 6,
+  },
+  categoryLabel: {
+    fontSize: 11,
+    marginTop: 2,
   },
   section: {
     marginBottom: 24,
@@ -242,7 +326,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   seeAll: {
@@ -263,25 +347,5 @@ const styles = StyleSheet.create({
   addText: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  foodCard: {
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  foodRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  foodMeal: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 12,
-    width: 100,
-  },
-  foodItems: {
-    fontSize: 14,
-    flex: 1,
   },
 });
