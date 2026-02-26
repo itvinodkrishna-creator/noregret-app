@@ -123,19 +123,62 @@ export default function TasksScreen() {
     .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
 
   const handleAddTask = async () => {
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      Alert.alert('Error', 'Please enter a task title');
+      return;
+    }
 
     const taskDateTime = new Date(selectedDate);
     taskDateTime.setHours(selectedTime.getHours());
     taskDateTime.setMinutes(selectedTime.getMinutes());
+
+    // Validate future date/time
+    if (isBefore(taskDateTime, new Date())) {
+      Alert.alert('Invalid Time', 'Please select a future date and time');
+      return;
+    }
+
+    let notificationId: string | undefined;
+
+    // Schedule notification if reminder is enabled and permissions granted
+    if (reminderEnabled && permissionGranted) {
+      try {
+        const taskId = Date.now().toString();
+        notificationId = await scheduleTaskNotification(
+          taskId,
+          title.trim(),
+          taskDateTime,
+          selectedRingtone
+        );
+      } catch (error) {
+        console.error('Error scheduling notification:', error);
+        Alert.alert('Reminder Error', 'Could not schedule reminder. Task will be created without reminder.');
+      }
+    }
 
     await addTask({
       title: title.trim(),
       description: description.trim(),
       time: taskDateTime.toISOString(),
       category: selectedCategory,
-      reminderEnabled: true,
+      reminderEnabled,
+      ringtone: selectedRingtone,
+      notificationId,
     });
+
+    // Reset form
+    setTitle('');
+    setDescription('');
+    setSelectedDate(new Date());
+    setSelectedTime(new Date());
+    setReminderEnabled(true);
+    setSelectedRingtone('default');
+    setShowAddModal(false);
+    
+    Alert.alert('Success', reminderEnabled ? 'Task created with reminder!' : 'Task created!');
+  };
+
+  const minDate = startOfToday();
 
     // Reset form
     setTitle('');
