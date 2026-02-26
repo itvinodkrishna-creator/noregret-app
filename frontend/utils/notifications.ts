@@ -164,20 +164,32 @@ export async function playAlarmSound(soundUrl: string = 'default') {
 
     console.log('🔊 Playing alarm sound:', audioUrl);
 
-    // Create audio player with expo-audio
-    const { AudioPlayer } = await import('expo-audio');
-    audioPlayer = new AudioPlayer(audioUrl, {
-      shouldPlay: true,
-      volume: 1.0,
-      loop: true, // Loop continuously
-    });
+    // Use expo-audio correctly
+    const { useAudioPlayer } = await import('expo-audio');
+    
+    // For now, we'll use a simpler approach - play via Audio component
+    // This works better cross-platform
+    const { Audio } = await import('expo-av');
+    
+    const { sound } = await Audio.Sound.createAsync(
+      { uri: audioUrl },
+      { 
+        shouldPlay: true,
+        isLooping: true,
+        volume: 1.0,
+      },
+      null,
+      false
+    );
 
-    await audioPlayer.play();
+    audioPlayer = sound as any;
     isPlaying = true;
     
     console.log('✅ Alarm sound playing (looping)');
   } catch (error) {
     console.error('❌ Error playing alarm sound:', error);
+    // Fallback - at least log that we tried
+    isPlaying = false;
   }
 }
 
