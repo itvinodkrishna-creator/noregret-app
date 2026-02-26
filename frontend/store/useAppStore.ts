@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { Task, FoodPlan, UserPreferences, UserStats } from '../types';
 import * as storage from '../utils/storage';
-import { format, parseISO, startOfDay, differenceInDays } from 'date-fns';
+import { format, parseISO, differenceInDays } from 'date-fns';
 
 interface AppState {
   tasks: Task[];
@@ -34,12 +34,18 @@ interface AppState {
   getTodayTasks: () => Task[];
   getUpcomingTasks: () => Task[];
   getCompletionRate: (date?: string) => number;
+  getTasksByCategory: (category: string) => Task[];
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
   tasks: [],
   foodPlans: [],
-  preferences: { darkMode: true, notificationFrequency: 5 },
+  preferences: { 
+    darkMode: true, 
+    notificationFrequency: 5,
+    soundEnabled: true,
+    vibrationEnabled: true,
+  },
   stats: {
     currentStreak: 0,
     longestStreak: 0,
@@ -58,7 +64,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         storage.getPreferences(),
         storage.getStats(),
       ]);
-      set({ tasks, foodPlans, preferences, stats, loading: false });
+      set({ 
+        tasks, 
+        foodPlans, 
+        preferences: {
+          ...{ darkMode: true, notificationFrequency: 5, soundEnabled: true, vibrationEnabled: true },
+          ...preferences,
+        }, 
+        stats, 
+        loading: false 
+      });
     } catch (error) {
       console.error('Error loading data:', error);
       set({ loading: false });
@@ -218,5 +233,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     
     const completed = dateTasks.filter(task => task.status === 'completed').length;
     return (completed / dateTasks.length) * 100;
+  },
+  
+  getTasksByCategory: (category: string) => {
+    return get().tasks.filter(task => task.category === category);
   },
 }));
