@@ -26,11 +26,29 @@ const StatsIcon = ({ color, size }: { color: string; size: number }) => (
 function TabLayout() {
   const { theme } = useTheme();
   const [initializing, setInitializing] = useState(false);
+  const [showAlarm, setShowAlarm] = useState(false);
+  const [alarmTask, setAlarmTask] = useState<{ id: string; title: string; description?: string } | null>(null);
+  const { tasks, completeTask, snoozeTask: storeSnoozeTask } = useAppStore();
 
   useEffect(() => {
     // Don't load data on initial mount to avoid blocking
     setInitializing(false);
-  }, []);
+    
+    // Set up alarm notification listeners
+    const unsubscribe = setupNotificationListeners((taskId: string, title: string) => {
+      const task = tasks.find(t => t._id === taskId);
+      setAlarmTask({
+        id: taskId,
+        title,
+        description: task?.description,
+      });
+      setShowAlarm(true);
+      // Start playing alarm sound
+      playAlarmSound();
+    });
+    
+    return unsubscribe;
+  }, [tasks]);
 
   if (initializing) {
     return (
