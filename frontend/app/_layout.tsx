@@ -23,8 +23,7 @@ const StatsIcon = ({ color, size }: { color: string; size: number }) => (
 
 function TabLayout() {
   const { theme } = useTheme();
-  const { loadData, loading } = useAppStore();
-  const [initializing, setInitializing] = useState(true);
+  const [initializing, setInitializing] = useState(false);
 
   useEffect(() => {
     const initialize = async () => {
