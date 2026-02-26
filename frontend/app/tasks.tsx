@@ -180,14 +180,6 @@ export default function TasksScreen() {
 
   const minDate = startOfToday();
 
-    // Reset form
-    setTitle('');
-    setDescription('');
-    setSelectedDate(new Date());
-    setSelectedTime(new Date());
-    setShowAddModal(false);
-  };
-
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
