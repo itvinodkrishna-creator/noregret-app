@@ -1,25 +1,31 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
-import { Audio } from 'expo-av';
+import { AudioPlayer, useAudioPlayer } from 'expo-audio';
 
-// Configure notification behavior for alarm-style
+// Configure notification to show and play sound
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
-    priority: Notifications.AndroidNotificationPriority.MAX,
   }),
 });
 
-// Global sound object
-let alarmSound: Audio.Sound | null = null;
+// Global audio player
+let audioPlayer: AudioPlayer | null = null;
 let isPlaying = false;
+
+// Built-in alarm sounds (we'll use beep sounds that work)
+const BUILT_IN_SOUNDS = {
+  default: 'https://assets.mixkit.co/active_storage/sfx/2869/2869.wav', // Alarm beep
+  bell: 'https://assets.mixkit.co/active_storage/sfx/2568/2568.wav', // Bell
+  chime: 'https://assets.mixkit.co/active_storage/sfx/2571/2571.wav', // Chime  
+  alert: 'https://assets.mixkit.co/active_storage/sfx/2870/2870.wav', // Alert beep
+};
 
 export async function registerForPushNotificationsAsync() {
   if (Platform.OS === 'android') {
-    // Create high-priority notification channel for alarms
     await Notifications.setNotificationChannelAsync('alarm', {
       name: 'Task Alarms',
       importance: Notifications.AndroidImportance.MAX,
@@ -28,8 +34,9 @@ export async function registerForPushNotificationsAsync() {
       sound: 'default',
       enableVibrate: true,
       enableLights: true,
-      bypassDnd: true, // Bypass Do Not Disturb
+      bypassDnd: true,
       showBadge: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
   }
 
@@ -59,26 +66,29 @@ export async function scheduleTaskNotification(
   sound: string = 'default'
 ): Promise<string> {
   try {
+    // Schedule persistent notification with action buttons
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
-        title: '⏰ TASK REMINDER - ALARM!',
-        body: `🔔 ${title}`,
+        title: '⏰ ALARM - TASK REMINDER',
+        body: `🔔 ${title}\n\nTap to open alarm`,
         data: { 
           taskId, 
           action: 'alarm',
           taskTitle: title,
+          soundUrl: sound,
           alarmTime: time.toISOString(),
         },
-        sound: 'default', // Use system default sound
+        sound: 'default',
         priority: Notifications.AndroidNotificationPriority.MAX,
-        vibrate: [0, 500, 200, 500, 200, 500], // Strong vibration pattern
+        vibrate: [0, 500, 200, 500, 200, 500, 200, 500],
         badge: 1,
-        // Android specific
+        autoDismiss: false, // Don't auto-dismiss
+        sticky: true,
         ...(Platform.OS === 'android' && {
           androidMode: Notifications.AndroidNotificationVisibility.PUBLIC,
-          sticky: true,
-          autoDismiss: false,
         }),
+        // Add action buttons for Android
+        categoryIdentifier: 'alarm',
       },
       trigger: {
         date: time,
@@ -87,17 +97,42 @@ export async function scheduleTaskNotification(
       },
     });
 
-    console.log(`Notification scheduled for ${time.toISOString()}, ID: ${notificationId}`);
+    console.log(`✅ Alarm scheduled for ${time.toISOString()}, ID: ${notificationId}`);
     return notificationId;
   } catch (error) {
-    console.error('Error scheduling notification:', error);
+    console.error('❌ Error scheduling notification:', error);
     throw error;
+  }
+}
+
+// Set up notification categories with actions
+export async function setupNotificationCategories() {
+  try {
+    await Notifications.setNotificationCategoryAsync('alarm', [
+      {
+        identifier: 'stop',
+        buttonTitle: '🛑 Stop',
+        options: {
+          opensAppToForeground: true,
+        },
+      },
+      {
+        identifier: 'wait',
+        buttonTitle: '⏰ Wait 5min',
+        options: {
+          opensAppToForeground: false,
+        },
+      },
+    ]);
+  } catch (error) {
+    console.error('Error setting up notification categories:', error);
   }
 }
 
 export async function cancelNotification(notificationId: string) {
   try {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
+    await Notifications.dismissNotificationAsync(notificationId);
   } catch (error) {
     console.error('Error canceling notification:', error);
   }
@@ -106,85 +141,95 @@ export async function cancelNotification(notificationId: string) {
 export async function snoozeNotification(
   taskId: string,
   title: string,
-  minutes: number
+  minutes: number,
+  soundUrl?: string
 ): Promise<string> {
   const snoozeTime = new Date(Date.now() + minutes * 60 * 1000);
-  return scheduleTaskNotification(taskId, title, snoozeTime);
+  return scheduleTaskNotification(taskId, title, snoozeTime, soundUrl || 'default');
 }
 
 export async function getAllScheduledNotifications() {
   return await Notifications.getAllScheduledNotificationsAsync();
 }
 
-// Load and play alarm sound (looping) - Using system sound
-export async function playAlarmSound(soundFile: string = 'default') {
+// Play alarm sound with looping
+export async function playAlarmSound(soundUrl: string = 'default') {
   try {
-    // For now, we'll rely on notification sound system
-    // Custom sound files require actual audio files
-    console.log('Alarm triggered - using system notification sound');
-    
-    // Configure audio mode
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      shouldDuckAndroid: false,
-      playThroughEarpieceAndroid: false,
+    await stopAlarmSound();
+
+    // Get the sound URL
+    const audioUrl = soundUrl.startsWith('http') 
+      ? soundUrl 
+      : BUILT_IN_SOUNDS[soundUrl as keyof typeof BUILT_IN_SOUNDS] || BUILT_IN_SOUNDS.default;
+
+    console.log('🔊 Playing alarm sound:', audioUrl);
+
+    // Create audio player with expo-audio
+    const { AudioPlayer } = await import('expo-audio');
+    audioPlayer = new AudioPlayer(audioUrl, {
+      shouldPlay: true,
+      volume: 1.0,
+      loop: true, // Loop continuously
     });
+
+    await audioPlayer.play();
+    isPlaying = true;
     
-    // For mobile apps, notification sound will play
-    // For web, we can't play custom sounds reliably
-    console.log('Alarm sound configured');
+    console.log('✅ Alarm sound playing (looping)');
   } catch (error) {
-    console.error('Error configuring alarm sound:', error);
+    console.error('❌ Error playing alarm sound:', error);
   }
 }
 
-// Stop alarm sound
 export async function stopAlarmSound() {
   try {
-    if (alarmSound) {
-      await alarmSound.stopAsync();
-      await alarmSound.unloadAsync();
-      alarmSound = null;
+    if (audioPlayer) {
+      await audioPlayer.pause();
+      audioPlayer.remove();
+      audioPlayer = null;
       isPlaying = false;
-      console.log('Alarm sound stopped');
+      console.log('✅ Alarm sound stopped');
     }
   } catch (error) {
     console.error('Error stopping alarm sound:', error);
   }
 }
 
-// Check if alarm is currently playing
 export function isAlarmPlaying(): boolean {
   return isPlaying;
 }
 
-// Set up notification listeners
+// Set up notification listeners with sound playback
 export function setupNotificationListeners(
-  onAlarmTrigger: (taskId: string, title: string) => void
+  onAlarmTrigger: (taskId: string, title: string, soundUrl?: string) => void
 ) {
-  // Handle notification received while app is in foreground
+  // Handle notification received (app in foreground)
   const receivedSubscription = Notifications.addNotificationReceivedListener(notification => {
     const data = notification.request.content.data;
     if (data.action === 'alarm') {
-      console.log('Alarm notification received:', data);
-      // Play alarm sound
-      playAlarmSound();
-      // Show full-screen modal
-      onAlarmTrigger(data.taskId as string, data.taskTitle as string);
+      console.log('🔔 Alarm notification received (foreground)');
+      const soundUrl = data.soundUrl as string || 'default';
+      playAlarmSound(soundUrl);
+      onAlarmTrigger(data.taskId as string, data.taskTitle as string, soundUrl);
     }
   });
 
-  // Handle notification response (user tapped notification)
-  const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+  // Handle notification tapped (app in background/closed)
+  const responseSubscription = Notifications.addNotificationResponseReceivedListener(async response => {
     const data = response.notification.request.content.data;
+    const actionIdentifier = response.actionIdentifier;
+
     if (data.action === 'alarm') {
-      console.log('Alarm notification tapped:', data);
-      // Play alarm sound
-      playAlarmSound();
-      // Show full-screen modal
-      onAlarmTrigger(data.taskId as string, data.taskTitle as string);
+      console.log('👆 Alarm notification tapped:', actionIdentifier);
+      
+      if (actionIdentifier === 'stop' || actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
+        const soundUrl = data.soundUrl as string || 'default';
+        playAlarmSound(soundUrl);
+        onAlarmTrigger(data.taskId as string, data.taskTitle as string, soundUrl);
+      } else if (actionIdentifier === 'wait') {
+        // Snooze for 5 minutes
+        await snoozeNotification(data.taskId as string, data.taskTitle as string, 5, data.soundUrl as string);
+      }
     }
   });
 
@@ -194,13 +239,10 @@ export function setupNotificationListeners(
   };
 }
 
-// Request exact alarm permissions (Android 12+)
 export async function requestExactAlarmPermission() {
   if (Platform.OS === 'android' && Platform.Version >= 31) {
     try {
-      // Note: This requires native module for Android 12+
-      // For Expo, this is limited
-      console.log('Exact alarm permission needed for Android 12+');
+      console.log('ℹ️ Exact alarm permission needed for Android 12+');
       return true;
     } catch (error) {
       console.error('Error requesting exact alarm permission:', error);
@@ -208,4 +250,13 @@ export async function requestExactAlarmPermission() {
     }
   }
   return true;
+}
+
+// Get built-in sound URLs
+export function getBuiltInSounds() {
+  return Object.keys(BUILT_IN_SOUNDS).map(key => ({
+    label: key.charAt(0).toUpperCase() + key.slice(1),
+    value: key,
+    url: BUILT_IN_SOUNDS[key as keyof typeof BUILT_IN_SOUNDS],
+  }));
 }
