@@ -458,11 +458,15 @@ export default function TasksScreen() {
     setTempTime(selectedTime);
     setShowTimePicker(true);
   };
-    if (time) {
-      setSelectedTime(time);
-      // Auto close on iOS after selection
-      setShowTimePicker(false);
-    }
+
+  // Cancel date picker
+  const cancelDatePicker = () => {
+    setShowDatePicker(false);
+  };
+
+  // Cancel time picker
+  const cancelTimePicker = () => {
+    setShowTimePicker(false);
   };
 
   const renderTaskForm = () => (
