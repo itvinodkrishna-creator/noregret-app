@@ -30,7 +30,7 @@ function TabLayout() {
     setInitializing(false);
   }, []);
 
-  if (initializing || loading) {
+  if (initializing) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
         <ActivityIndicator size="large" color={theme.primary} />
