@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
@@ -7,11 +7,11 @@ import { TaskCard } from '../components/TaskCard';
 import { StatsCard } from '../components/StatsCard';
 import { router } from 'expo-router';
 import { format } from 'date-fns';
-import { CATEGORY_CONFIG } from '../types';
+import { CATEGORY_CONFIG, CategoryType } from '../types';
 import { playClickSound } from '../utils/sounds';
 
 export default function Dashboard() {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const { 
     tasks, 
     foodPlans, 
@@ -21,10 +21,16 @@ export default function Dashboard() {
     completeTask, 
     getTodayTasks, 
     getUpcomingTasks,
-    loading 
   } = useAppStore();
 
-  const [refreshing, setRefreshing] = React.useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null);
+
+  // Animation for category cards
+  const scaleAnims = Object.keys(CATEGORY_CONFIG).reduce((acc, key) => {
+    acc[key] = new Animated.Value(1);
+    return acc;
+  }, {} as {[key: string]: Animated.Value});
 
   useEffect(() => {
     loadData();
@@ -41,33 +47,50 @@ export default function Dashboard() {
     action();
   };
 
+  const handleCategoryPress = (category: CategoryType) => {
+    playClickSound(preferences.soundEnabled);
+    
+    // Animate press
+    Animated.sequence([
+      Animated.timing(scaleAnims[category], {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnims[category], {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+    
+    setSelectedCategory(category);
+    router.push('/tasks');
+  };
+
   const todayTasks = getTodayTasks();
   const upcomingTasks = getUpcomingTasks().slice(0, 3);
   const completedToday = todayTasks.filter(t => t.status === 'completed').length;
   const todayProgress = todayTasks.length > 0 ? Math.round((completedToday / todayTasks.length) * 100) : 0;
-  
-  const todayDate = format(new Date(), 'yyyy-MM-dd');
-  const todayFoodPlans = foodPlans.filter(fp => fp.date === todayDate);
 
   // Get category counts
   const categoryCounts = Object.keys(CATEGORY_CONFIG).map(cat => ({
-    category: cat,
+    category: cat as CategoryType,
     count: tasks.filter(t => t.category === cat && t.status === 'pending').length,
-    color: CATEGORY_CONFIG[cat as keyof typeof CATEGORY_CONFIG].color,
-    icon: CATEGORY_CONFIG[cat as keyof typeof CATEGORY_CONFIG].icon,
+    config: CATEGORY_CONFIG[cat as CategoryType],
   }));
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Header */}
+      {/* Header with BIG NOREGRET branding */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.logoContainer}>
-            <Ionicons name="shield-checkmark" size={28} color={theme.primary} />
+            <Ionicons name="shield-checkmark" size={32} color={theme.primary} />
           </View>
           <View>
-            <Text style={[styles.greeting, { color: theme.textSecondary }]}>Welcome to</Text>
-            <Text style={[styles.title, { color: theme.text }]}>Noregret</Text>
+            <Text style={[styles.welcomeText, { color: theme.textSecondary }]}>Welcome to</Text>
+            <Text style={[styles.brandName, { color: theme.text }]}>NOREGRET</Text>
           </View>
         </View>
         <View style={styles.headerButtons}>
@@ -93,10 +116,10 @@ export default function Dashboard() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Daily Progress */}
+        {/* Daily Progress - Compact */}
         <View style={[styles.progressCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <View style={styles.progressHeader}>
-            <Text style={[styles.progressTitle, { color: theme.text }]}>Today's Progress</Text>
+          <View style={styles.progressRow}>
+            <Text style={[styles.progressTitle, { color: theme.text }]}>Today</Text>
             <Text style={[styles.progressPercent, { color: theme.primary }]}>{todayProgress}%</Text>
           </View>
           <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
@@ -111,11 +134,11 @@ export default function Dashboard() {
             />
           </View>
           <Text style={[styles.progressText, { color: theme.textSecondary }]}>
-            {completedToday} of {todayTasks.length} tasks completed
+            {completedToday}/{todayTasks.length} tasks done
           </Text>
         </View>
 
-        {/* Stats Overview */}
+        {/* Mini Stats Row - Compact */}
         <View style={styles.statsRow}>
           <StatsCard 
             icon="flame" 
@@ -137,19 +160,38 @@ export default function Dashboard() {
           />
         </View>
 
-        {/* Categories Quick View */}
+        {/* BIG Category Cards */}
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Categories</Text>
-        <View style={styles.categoriesRow}>
-          {categoryCounts.map(cat => (
-            <TouchableOpacity 
-              key={cat.category}
-              style={[styles.categoryCard, { backgroundColor: cat.color + '15', borderColor: cat.color }]}
-              onPress={() => handlePress(() => router.push('/tasks'))}
+        <View style={styles.categoryGrid}>
+          {categoryCounts.map(({ category, count, config }) => (
+            <Animated.View 
+              key={category}
+              style={[
+                styles.categoryCardWrapper,
+                { transform: [{ scale: scaleAnims[category] }] }
+              ]}
             >
-              <Ionicons name={cat.icon as any} size={20} color={cat.color} />
-              <Text style={[styles.categoryCount, { color: cat.color }]}>{cat.count}</Text>
-              <Text style={[styles.categoryLabel, { color: theme.textSecondary }]}>{cat.category}</Text>
-            </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.categoryCard, 
+                  { 
+                    backgroundColor: config.color + '15', 
+                    borderColor: config.color,
+                  }
+                ]}
+                onPress={() => handleCategoryPress(category)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.categoryIconContainer, { backgroundColor: config.color + '30' }]}>
+                  <Ionicons name={config.icon as any} size={28} color={config.color} />
+                </View>
+                <Text style={[styles.categoryCount, { color: config.color }]}>{count}</Text>
+                <Text style={[styles.categoryLabel, { color: theme.text }]}>{category}</Text>
+                <Text style={[styles.categorySubtext, { color: theme.textSecondary }]}>
+                  {count === 1 ? 'task' : 'tasks'}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
           ))}
         </View>
 
@@ -164,7 +206,7 @@ export default function Dashboard() {
           
           {todayTasks.length === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Ionicons name="checkmark-done" size={48} color={theme.textSecondary} />
+              <Ionicons name="checkmark-done" size={40} color={theme.textSecondary} />
               <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No tasks for today</Text>
               <TouchableOpacity onPress={() => handlePress(() => router.push('/tasks'))}>
                 <Text style={[styles.addText, { color: theme.primary }]}>Add your first task</Text>
@@ -175,7 +217,7 @@ export default function Dashboard() {
               <TaskCard
                 key={task._id}
                 task={task}
-                onPress={() => {}}
+                onPress={() => router.push('/tasks')}
                 onComplete={() => {
                   playClickSound(preferences.soundEnabled);
                   task._id && completeTask(task._id);
@@ -193,7 +235,7 @@ export default function Dashboard() {
               <TaskCard
                 key={task._id}
                 task={task}
-                onPress={() => {}}
+                onPress={() => router.push('/tasks')}
                 onComplete={() => {
                   playClickSound(preferences.soundEnabled);
                   task._id && completeTask(task._id);
@@ -219,28 +261,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   logoContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 50,
+    height: 50,
+    borderRadius: 14,
     backgroundColor: 'rgba(99, 102, 241, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
-  greeting: {
+  welcomeText: {
     fontSize: 12,
     marginBottom: 2,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  brandName: {
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: 2,
   },
   headerButtons: {
     flexDirection: 'row',
@@ -259,90 +302,107 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   progressCard: {
-    padding: 20,
-    borderRadius: 16,
+    padding: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 20,
+    marginBottom: 12,
   },
-  progressHeader: {
+  progressRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   progressTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   progressPercent: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: 'bold',
   },
   progressBar: {
-    height: 8,
-    borderRadius: 4,
-    marginBottom: 8,
+    height: 6,
+    borderRadius: 3,
+    marginBottom: 6,
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 3,
   },
   progressText: {
-    fontSize: 13,
+    fontSize: 12,
   },
   statsRow: {
     flexDirection: 'row',
-    marginBottom: 24,
-    marginHorizontal: -6,
+    marginBottom: 20,
+    marginHorizontal: -4,
   },
-  categoriesRow: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  categoryGrid: {
     flexDirection: 'row',
-    marginBottom: 24,
-    gap: 10,
+    flexWrap: 'wrap',
+    marginHorizontal: -6,
+    marginBottom: 20,
+  },
+  categoryCardWrapper: {
+    width: '50%',
+    padding: 6,
   },
   categoryCard: {
-    flex: 1,
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 2,
+  },
+  categoryIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
   },
   categoryCount: {
-    fontSize: 20,
+    fontSize: 32,
     fontWeight: 'bold',
-    marginTop: 6,
   },
   categoryLabel: {
-    fontSize: 11,
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  categorySubtext: {
+    fontSize: 12,
     marginTop: 2,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    marginBottom: 12,
   },
   seeAll: {
     fontSize: 14,
     fontWeight: '600',
   },
   emptyCard: {
-    padding: 32,
+    padding: 28,
     borderRadius: 12,
     borderWidth: 1,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 16,
-    marginTop: 12,
-    marginBottom: 8,
+    fontSize: 14,
+    marginTop: 10,
+    marginBottom: 6,
   },
   addText: {
     fontSize: 14,
