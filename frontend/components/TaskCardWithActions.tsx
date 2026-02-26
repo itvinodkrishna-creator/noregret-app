@@ -78,11 +78,11 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
       newDateTime.setHours(taskDate.getHours());
       newDateTime.setMinutes(taskDate.getMinutes());
       
-      if (Platform.OS === 'ios') {
-        setTempDate(newDateTime);
-      } else {
-        onDateTimeChange(newDateTime);
-      }
+      // Auto-save and close on iOS too
+      setShowDatePicker(false);
+      onDateTimeChange(newDateTime);
+    } else if (event.type === 'dismissed') {
+      setShowDatePicker(false);
     }
   };
 
@@ -97,11 +97,11 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
       newDateTime.setHours(selectedTime.getHours());
       newDateTime.setMinutes(selectedTime.getMinutes());
       
-      if (Platform.OS === 'ios') {
-        setTempDate(newDateTime);
-      } else {
-        onDateTimeChange(newDateTime);
-      }
+      // Auto-save and close on iOS too
+      setShowTimePicker(false);
+      onDateTimeChange(newDateTime);
+    } else if (event.type === 'dismissed') {
+      setShowTimePicker(false);
     }
   };
 
