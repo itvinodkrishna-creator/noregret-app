@@ -157,16 +157,26 @@ export default function TasksScreen() {
     const taskDateTime = new Date(selectedDate);
     taskDateTime.setHours(selectedTime.getHours());
     taskDateTime.setMinutes(selectedTime.getMinutes());
+    taskDateTime.setSeconds(0);
+    taskDateTime.setMilliseconds(0);
 
-    // Validate future date/time
-    if (isBefore(taskDateTime, new Date())) {
-      Alert.alert('Invalid Time', 'Please select a future date and time');
+    const now = new Date();
+    
+    // Validate future date/time - must be at least 1 minute in the future
+    if (taskDateTime.getTime() <= now.getTime()) {
+      Alert.alert('Invalid Time', 'Please select a future date and time (at least 1 minute from now)');
       return;
     }
 
+    // Calculate minutes until alarm
+    const minutesUntil = Math.floor((taskDateTime.getTime() - now.getTime()) / (1000 * 60));
+    
+    console.log(`📅 Scheduling alarm for: ${taskDateTime.toISOString()}`);
+    console.log(`⏱️ Alarm will trigger in ${minutesUntil} minutes`);
+
     let notificationId: string | undefined;
 
-    // Schedule notification if reminder is enabled and permissions granted
+    // Schedule notification ONLY if reminder is enabled
     if (reminderEnabled && permissionGranted) {
       try {
         const taskId = Date.now().toString();
@@ -176,8 +186,9 @@ export default function TasksScreen() {
           taskDateTime,
           selectedRingtone
         );
+        console.log(`✅ Notification scheduled successfully. ID: ${notificationId}`);
       } catch (error) {
-        console.error('Error scheduling notification:', error);
+        console.error('❌ Error scheduling notification:', error);
         Alert.alert('Reminder Error', 'Could not schedule reminder. Task will be created without reminder.');
       }
     }
@@ -201,7 +212,16 @@ export default function TasksScreen() {
     setSelectedRingtone('default');
     setShowAddModal(false);
     
-    Alert.alert('Success', reminderEnabled ? 'Task created with reminder!' : 'Task created!');
+    // Show success message with scheduled time
+    const timeStr = format(taskDateTime, 'MMM dd, yyyy h:mm a');
+    Alert.alert(
+      'Task Created!', 
+      reminderEnabled 
+        ? `Reminder scheduled for ${timeStr}\n(${minutesUntil} minutes from now)` 
+        : 'Task created without reminder'
+    );
+    
+    console.log('✅ Task created - alarm will NOT trigger now');
   };
 
   const minDate = startOfToday();
