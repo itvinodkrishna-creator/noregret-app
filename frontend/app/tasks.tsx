@@ -241,6 +241,33 @@ export default function TasksScreen() {
     showToast('Task Completed!', 'success');
   };
 
+  // Unified handler for date/time change from TaskCard
+  const handleDateTimeChange = async (task: Task, newDateTime: Date) => {
+    if (!task._id) return;
+    
+    playClickSound(preferences.soundEnabled);
+    cancelAlarmsForTask(task._id);
+    
+    let alarmId: string | undefined;
+    if (task.reminderEnabled) {
+      const now = new Date();
+      const msUntilAlarm = newDateTime.getTime() - now.getTime();
+      if (msUntilAlarm >= 60000) {
+        try {
+          alarmId = scheduleAlarm(task._id, task.title, newDateTime, task.ringtone || 'default');
+        } catch (error) {
+          console.error('Error scheduling alarm:', error);
+        }
+      }
+    }
+    
+    await updateTask(task._id, { 
+      time: newDateTime.toISOString(),
+      notificationId: alarmId,
+    });
+    showToast('Date/Time Updated!', 'success');
+  };
+
   // New handler for date change from TaskCard
   const handleDateChange = async (task: Task, newDate: Date) => {
     if (!task._id) return;
