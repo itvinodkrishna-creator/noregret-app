@@ -631,8 +631,7 @@ export default function TasksScreen() {
               onComplete={() => task._id && handleCompleteTask(task._id)}
               onEdit={() => openEditModal(task)}
               onDelete={() => handleDeleteTask(task)}
-              onDateChange={(newDate) => handleDateChange(task, newDate)}
-              onTimeChange={(newTime) => handleTimeChange(task, newTime)}
+              onDateTimeChange={(newDateTime) => handleDateTimeChange(task, newDateTime)}
             />
           ))
         )}
