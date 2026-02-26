@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
@@ -16,21 +16,12 @@ import {
   setupNotificationCategories,
   registerForPushNotificationsAsync,
 } from '../utils/notifications';
+import { initClickSound } from '../utils/sounds';
 
-const HomeIcon = ({ color, size }: { color: string; size: number }) => (
-  <Ionicons name="home" size={size} color={color} />
-);
-
-const TasksIcon = ({ color, size }: { color: string; size: number }) => (
-  <Ionicons name="checkmark-circle" size={size} color={color} />
-);
-
-const FoodIcon = ({ color, size }: { color: string; size: number }) => (
-  <Ionicons name="restaurant" size={size} color={color} />
-);
-
-const StatsIcon = ({ color, size }: { color: string; size: number }) => (
-  <Ionicons name="bar-chart" size={size} color={color} />
+const TabIcon = ({ name, color, size, focused }: { name: string; color: string; size: number; focused: boolean }) => (
+  <View style={[styles.tabIconContainer, focused && styles.tabIconFocused]}>
+    <Ionicons name={name as any} size={size} color={color} />
+  </View>
 );
 
 // Alarm state interface
@@ -44,7 +35,7 @@ interface AlarmState {
 
 function TabLayout() {
   const { theme } = useTheme();
-  const { tasks, completeTask, updateTask } = useAppStore();
+  const { tasks, completeTask, updateTask, loadData } = useAppStore();
   
   // Use useRef to keep alarm state stable across re-renders
   const [alarmState, setAlarmState] = useState<AlarmState | null>(null);
@@ -53,12 +44,18 @@ function TabLayout() {
   // Track if we've set up the callback
   const callbackSetRef = useRef(false);
 
+  // Load data and setup on mount
+  useEffect(() => {
+    loadData();
+    initClickSound();
+  }, []);
+
   // Setup alarm trigger callback ONCE on mount
   useEffect(() => {
     if (callbackSetRef.current) return;
     callbackSetRef.current = true;
     
-    console.log('🔔 Setting up alarm system...');
+    console.log('🔔 Setting up Noregret alarm system...');
     
     // Request notification permissions (for native)
     registerForPushNotificationsAsync();
@@ -88,18 +85,13 @@ function TabLayout() {
       console.log('✅ Alarm modal should now be VISIBLE');
     });
     
-    console.log('✅ Alarm system initialized');
+    console.log('✅ Noregret alarm system initialized');
     
     // Cleanup on unmount
     return () => {
       callbackSetRef.current = false;
     };
   }, []);
-
-  // Log alarm state changes
-  useEffect(() => {
-    console.log(`📊 Alarm state changed: ${alarmState?.visible ? 'VISIBLE' : 'HIDDEN'}`);
-  }, [alarmState?.visible]);
 
   // Handle dismiss (STOP button)
   const handleDismissAlarm = useCallback(async () => {
@@ -165,9 +157,15 @@ function TabLayout() {
             backgroundColor: theme.surface,
             borderTopColor: theme.border,
             borderTopWidth: 1,
-            height: 60,
-            paddingBottom: 8,
-            paddingTop: 8,
+            height: 70,
+            paddingBottom: 16,
+            paddingTop: 10,
+            marginHorizontal: 0,
+            elevation: 0,
+          },
+          tabBarLabelStyle: {
+            fontSize: 12,
+            fontWeight: '600',
           },
           headerShown: false,
         }}
@@ -181,34 +179,46 @@ function TabLayout() {
         <Tabs.Screen
           name="dashboard"
           options={{
-            title: 'Dashboard',
-            tabBarIcon: HomeIcon,
+            title: 'Home',
+            tabBarIcon: ({ color, size, focused }) => (
+              <TabIcon name="home" color={color} size={size} focused={focused} />
+            ),
           }}
         />
         <Tabs.Screen
           name="tasks"
           options={{
             title: 'Tasks',
-            tabBarIcon: TasksIcon,
-          }}
-        />
-        <Tabs.Screen
-          name="food"
-          options={{
-            title: 'Food',
-            tabBarIcon: FoodIcon,
+            tabBarIcon: ({ color, size, focused }) => (
+              <TabIcon name="checkmark-circle" color={color} size={size} focused={focused} />
+            ),
           }}
         />
         <Tabs.Screen
           name="stats"
           options={{
             title: 'Stats',
-            tabBarIcon: StatsIcon,
+            tabBarIcon: ({ color, size, focused }) => (
+              <TabIcon name="bar-chart" color={color} size={size} focused={focused} />
+            ),
+          }}
+        />
+        {/* Hide food and settings from tab bar - accessed via other means */}
+        <Tabs.Screen
+          name="food"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="settings"
+          options={{
+            href: null,
           }}
         />
       </Tabs>
       
-      {/* Full-Screen Alarm Modal - Always rendered, visibility controlled by state */}
+      {/* Full-Screen Alarm Modal */}
       <AlarmModal
         visible={alarmState?.visible || false}
         taskTitle={alarmState?.title || ''}
@@ -219,6 +229,16 @@ function TabLayout() {
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  tabIconContainer: {
+    padding: 4,
+    borderRadius: 12,
+  },
+  tabIconFocused: {
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+  },
+});
 
 export default function Layout() {
   return (
