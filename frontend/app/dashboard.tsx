@@ -82,15 +82,18 @@ export default function Dashboard() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Header with BIG NOREGRET branding */}
+      {/* Header with NO big, regret small branding */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.logoContainer}>
             <Ionicons name="shield-checkmark" size={32} color={theme.primary} />
           </View>
           <View>
-            <Text style={[styles.welcomeText, { color: theme.textSecondary }]}>Welcome to</Text>
-            <Text style={[styles.brandName, { color: theme.text }]}>NOREGRET</Text>
+            <View style={styles.brandContainer}>
+              <Text style={[styles.brandNO, { color: theme.text }]}>NO</Text>
+              <Text style={[styles.brandRegret, { color: theme.primary }]}>regret</Text>
+            </View>
+            <Text style={[styles.welcomeText, { color: theme.textSecondary }]}>Stay disciplined</Text>
           </View>
         </View>
         <View style={styles.headerButtons}>
