@@ -23,6 +23,14 @@ export const DatePickerModal: React.FC<DatePickerModalProps> = ({
   const [selectedDate, setSelectedDate] = useState(value);
   const [currentMonth, setCurrentMonth] = useState(value);
 
+  // Sync state when value or visibility changes
+  React.useEffect(() => {
+    if (visible) {
+      setSelectedDate(value);
+      setCurrentMonth(value);
+    }
+  }, [visible, value]);
+
   // Generate days for current month view
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
