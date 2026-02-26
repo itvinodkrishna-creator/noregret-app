@@ -104,24 +104,6 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
     }
   };
 
-  // Confirm iOS date selection
-  const confirmDateSelection = () => {
-    const newDateTime = new Date(tempDate);
-    newDateTime.setHours(taskDate.getHours());
-    newDateTime.setMinutes(taskDate.getMinutes());
-    onDateTimeChange(newDateTime);
-    setShowDatePicker(false);
-  };
-
-  // Confirm iOS time selection
-  const confirmTimeSelection = () => {
-    const newDateTime = new Date(taskDate);
-    newDateTime.setHours(tempDate.getHours());
-    newDateTime.setMinutes(tempDate.getMinutes());
-    onDateTimeChange(newDateTime);
-    setShowTimePicker(false);
-  };
-
   return (
     <>
       <View style={[styles.card, { backgroundColor: theme.card, borderColor: categoryColor }]}>
