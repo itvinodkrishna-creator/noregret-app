@@ -28,14 +28,14 @@ function TabLayout() {
   const [initializing, setInitializing] = useState(false);
   const [showAlarm, setShowAlarm] = useState(false);
   const [alarmTask, setAlarmTask] = useState<{ id: string; title: string; description?: string } | null>(null);
-  const { tasks, completeTask, snoozeTask: storeSnoozeTask } = useAppStore();
+  const { tasks, completeTask, updateTask } = useAppStore();
 
   useEffect(() => {
-    // Don't load data on initial mount to avoid blocking
     setInitializing(false);
     
-    // Set up alarm notification listeners
-    const unsubscribe = setupNotificationListeners((taskId: string, title: string) => {
+    // Set up alarm notification listeners that automatically show alarm
+    const unsubscribe = setupNotificationListeners((taskId: string, title: string, soundUrl?: string) => {
+      console.log('🚨 ALARM TRIGGERED - Showing full screen');
       const task = tasks.find(t => t._id === taskId);
       setAlarmTask({
         id: taskId,
@@ -43,8 +43,7 @@ function TabLayout() {
         description: task?.description,
       });
       setShowAlarm(true);
-      // Start playing alarm sound
-      playAlarmSound();
+      // Sound is already playing from setupNotificationListeners
     });
     
     return unsubscribe;
