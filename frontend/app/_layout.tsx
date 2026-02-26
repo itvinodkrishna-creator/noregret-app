@@ -128,6 +128,16 @@ function TabLayout() {
         }}
       />
     </Tabs>
+    
+    {/* Full-Screen Alarm Modal */}
+    <AlarmModal
+      visible={showAlarm}
+      taskTitle={alarmTask?.title || ''}
+      taskDescription={alarmTask?.description}
+      onDismiss={handleDismissAlarm}
+      onSnooze={handleSnoozeAlarm}
+    />
+    </>
   );
 }
 
