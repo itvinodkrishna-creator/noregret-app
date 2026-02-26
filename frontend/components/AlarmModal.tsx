@@ -63,10 +63,10 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
             <Ionicons name="alarm" size={80} color="#EF4444" />
           </View>
 
-          {/* Time */}
+          {/* Time - Smaller */}
           <Text style={styles.time}>{currentTime}</Text>
 
-          {/* Task title */}
+          {/* Task title - Bigger and Yellow */}
           <Text style={styles.title}>{taskTitle}</Text>
 
           {/* Task description */}
