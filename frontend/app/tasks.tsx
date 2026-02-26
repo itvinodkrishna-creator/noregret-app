@@ -985,4 +985,39 @@ const styles = StyleSheet.create({
   cancelButtonText: { fontSize: 16, fontWeight: '600' },
   saveButton: { flex: 1, padding: 16, borderRadius: 12, alignItems: 'center' },
   saveButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  // Date/Time Picker Modal Styles
+  dateTimePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  dateTimePickerContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 30,
+  },
+  dateTimePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  dateTimePickerCancel: {
+    fontSize: 16,
+    paddingHorizontal: 8,
+  },
+  dateTimePickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  dateTimePickerDone: {
+    fontSize: 16,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+  },
+  dateTimePicker: {
+    height: 200,
+  },
 });
