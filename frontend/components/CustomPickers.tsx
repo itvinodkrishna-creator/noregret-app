@@ -345,19 +345,16 @@ export const TimePickerModal: React.FC<TimePickerModalProps> = ({
 
           {/* Action Buttons */}
           <View style={styles.actions}>
-            <Pressable
+            <TouchableOpacity
               style={[styles.cancelBtn, { backgroundColor: theme.card }]}
-              onPress={() => {
-                console.log('Time Cancel pressed');
-                onClose();
-              }}
+              onPress={onClose}
+              activeOpacity={0.7}
             >
               <Text style={[styles.cancelBtnText, { color: theme.text }]}>Cancel</Text>
-            </Pressable>
-            <Pressable
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[styles.selectBtn, { backgroundColor: theme.primary }]}
               onPress={() => {
-                console.log('Select Time pressed');
                 let hour24 = selectedHour;
                 if (isPM && selectedHour !== 12) hour24 = selectedHour + 12;
                 if (!isPM && selectedHour === 12) hour24 = 0;
@@ -368,9 +365,10 @@ export const TimePickerModal: React.FC<TimePickerModalProps> = ({
                 onSelect(newTime);
                 onClose();
               }}
+              activeOpacity={0.7}
             >
               <Text style={styles.selectBtnText}>Select Time</Text>
-            </Pressable>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
