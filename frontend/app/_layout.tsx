@@ -1,11 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
 import { AlarmModal } from '../components/AlarmModal';
-import { setupNotificationListeners, playAlarmSound, stopAlarmSound } from '../utils/notifications';
+import { 
+  setAlarmTriggerCallback, 
+  snoozeAlarm as snoozeAlarmScheduler,
+  cancelAlarmsForTask 
+} from '../utils/alarmScheduler';
+import { 
+  playAlarmSound, 
+  stopAlarmSound,
+  setupNotificationCategories,
+  registerForPushNotificationsAsync,
+} from '../utils/notifications';
 
 const HomeIcon = ({ color, size }: { color: string; size: number }) => (
   <Ionicons name="home" size={size} color={color} />
@@ -23,155 +33,189 @@ const StatsIcon = ({ color, size }: { color: string; size: number }) => (
   <Ionicons name="bar-chart" size={size} color={color} />
 );
 
+// Alarm state interface
+interface AlarmState {
+  visible: boolean;
+  taskId: string;
+  title: string;
+  description?: string;
+  soundUrl: string;
+}
+
 function TabLayout() {
   const { theme } = useTheme();
-  const [initializing, setInitializing] = useState(false);
-  const [showAlarm, setShowAlarm] = useState(false);
-  const [alarmTask, setAlarmTask] = useState<{ id: string; title: string; description?: string } | null>(null);
   const { tasks, completeTask, updateTask } = useAppStore();
+  
+  // Use useRef to keep alarm state stable across re-renders
+  const [alarmState, setAlarmState] = useState<AlarmState | null>(null);
+  const alarmStateRef = useRef<AlarmState | null>(null);
+  
+  // Track if we've set up the callback
+  const callbackSetRef = useRef(false);
 
+  // Setup alarm trigger callback ONCE on mount
   useEffect(() => {
-    setInitializing(false);
+    if (callbackSetRef.current) return;
+    callbackSetRef.current = true;
     
-    // Set up alarm notification listeners that automatically show alarm
-    const unsubscribe = setupNotificationListeners((taskId: string, title: string, soundUrl?: string) => {
-      console.log('🚨 ALARM TRIGGERED - Showing full screen alarm');
-      const task = tasks.find(t => t._id === taskId);
+    console.log('🔔 Setting up alarm system...');
+    
+    // Request notification permissions (for native)
+    registerForPushNotificationsAsync();
+    setupNotificationCategories();
+    
+    // Set the callback that will be called when an alarm triggers
+    setAlarmTriggerCallback((alarm) => {
+      console.log('🚨🚨🚨 ALARM CALLBACK TRIGGERED! 🚨🚨🚨');
+      console.log(`   Task: ${alarm.title}`);
+      console.log(`   ID: ${alarm.taskId}`);
       
-      // Set alarm data - this will make modal visible
-      setAlarmTask({
-        id: taskId,
-        title,
-        description: task?.description,
-      });
-      setShowAlarm(true); // Show modal and keep it visible
+      const newState: AlarmState = {
+        visible: true,
+        taskId: alarm.taskId,
+        title: alarm.title,
+        description: alarm.description,
+        soundUrl: alarm.soundUrl,
+      };
       
-      console.log('✅ Alarm modal state set to TRUE - should stay visible');
+      // Play alarm sound
+      playAlarmSound(alarm.soundUrl);
+      
+      // Update state to show modal
+      alarmStateRef.current = newState;
+      setAlarmState(newState);
+      
+      console.log('✅ Alarm modal should now be VISIBLE');
     });
     
-    return unsubscribe;
-  }, [tasks]);
+    console.log('✅ Alarm system initialized');
+    
+    // Cleanup on unmount
+    return () => {
+      callbackSetRef.current = false;
+    };
+  }, []);
 
-  // Log when showAlarm changes
+  // Log alarm state changes
   useEffect(() => {
-    console.log(`📊 Alarm modal visibility: ${showAlarm ? 'VISIBLE' : 'HIDDEN'}`);
-  }, [showAlarm]);
+    console.log(`📊 Alarm state changed: ${alarmState?.visible ? 'VISIBLE' : 'HIDDEN'}`);
+  }, [alarmState?.visible]);
 
-  const handleDismissAlarm = async () => {
+  // Handle dismiss (STOP button)
+  const handleDismissAlarm = useCallback(async () => {
     console.log('🛑 STOP pressed - Dismissing alarm');
+    
     await stopAlarmSound();
-    setShowAlarm(false);
-    if (alarmTask) {
-      await completeTask(alarmTask.id);
+    
+    const currentAlarm = alarmStateRef.current;
+    if (currentAlarm) {
+      // Mark task as completed
+      await completeTask(currentAlarm.taskId);
+      // Cancel any remaining alarms for this task
+      cancelAlarmsForTask(currentAlarm.taskId);
     }
-    setAlarmTask(null);
-  };
+    
+    alarmStateRef.current = null;
+    setAlarmState(null);
+    
+    console.log('✅ Alarm dismissed, modal hidden');
+  }, [completeTask]);
 
-  const handleSnoozeAlarm = async (minutes: number) => {
+  // Handle snooze
+  const handleSnoozeAlarm = useCallback(async (minutes: number) => {
     console.log(`⏰ SNOOZE pressed - ${minutes} minutes`);
+    
     await stopAlarmSound();
-    setShowAlarm(false);
-    if (alarmTask) {
-      const task = tasks.find(t => t._id === alarmTask.id);
-      if (task) {
-        const snoozeTime = new Date(Date.now() + minutes * 60 * 1000);
-        
-        // Cancel old notification
-        if (task.notificationId) {
-          await cancelNotification(task.notificationId);
-        }
-        
-        // Schedule new notification
-        const { scheduleTaskNotification } = await import('../utils/notifications');
-        const notificationId = await scheduleTaskNotification(
-          alarmTask.id,
-          task.title,
-          snoozeTime,
-          task.ringtone || 'default'
-        );
-        
-        // Update task
-        await updateTask(alarmTask.id, {
-          status: 'snoozed',
-          snoozedUntil: snoozeTime.toISOString(),
-          notificationId,
-        });
-        
-        console.log(`✅ Alarm snoozed for ${minutes} minutes`);
-      }
+    
+    const currentAlarm = alarmStateRef.current;
+    if (currentAlarm) {
+      // Schedule a new alarm
+      const newAlarmId = snoozeAlarmScheduler(
+        currentAlarm.taskId,
+        currentAlarm.title,
+        minutes,
+        currentAlarm.soundUrl,
+        currentAlarm.description
+      );
+      
+      // Update task status
+      const snoozeTime = new Date(Date.now() + minutes * 60 * 1000);
+      await updateTask(currentAlarm.taskId, {
+        status: 'snoozed',
+        snoozedUntil: snoozeTime.toISOString(),
+        notificationId: newAlarmId,
+      });
+      
+      console.log(`✅ Alarm snoozed for ${minutes} minutes`);
     }
-    setAlarmTask(null);
-  };
-
-  if (initializing) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
-    );
-  }
+    
+    alarmStateRef.current = null;
+    setAlarmState(null);
+    
+    console.log('✅ Alarm modal hidden, snooze scheduled');
+  }, [updateTask]);
 
   return (
     <>
       <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: theme.primary,
-        tabBarInactiveTintColor: theme.textSecondary,
-        tabBarStyle: {
-          backgroundColor: theme.surface,
-          borderTopColor: theme.border,
-          borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
-        },
-        headerShown: false,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          href: null,
+        screenOptions={{
+          tabBarActiveTintColor: theme.primary,
+          tabBarInactiveTintColor: theme.textSecondary,
+          tabBarStyle: {
+            backgroundColor: theme.surface,
+            borderTopColor: theme.border,
+            borderTopWidth: 1,
+            height: 60,
+            paddingBottom: 8,
+            paddingTop: 8,
+          },
+          headerShown: false,
         }}
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            href: null,
+          }}
+        />
+        <Tabs.Screen
+          name="dashboard"
+          options={{
+            title: 'Dashboard',
+            tabBarIcon: HomeIcon,
+          }}
+        />
+        <Tabs.Screen
+          name="tasks"
+          options={{
+            title: 'Tasks',
+            tabBarIcon: TasksIcon,
+          }}
+        />
+        <Tabs.Screen
+          name="food"
+          options={{
+            title: 'Food',
+            tabBarIcon: FoodIcon,
+          }}
+        />
+        <Tabs.Screen
+          name="stats"
+          options={{
+            title: 'Stats',
+            tabBarIcon: StatsIcon,
+          }}
+        />
+      </Tabs>
+      
+      {/* Full-Screen Alarm Modal - Always rendered, visibility controlled by state */}
+      <AlarmModal
+        visible={alarmState?.visible || false}
+        taskTitle={alarmState?.title || ''}
+        taskDescription={alarmState?.description}
+        onDismiss={handleDismissAlarm}
+        onSnooze={handleSnoozeAlarm}
       />
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: 'Dashboard',
-          tabBarIcon: HomeIcon,
-        }}
-      />
-      <Tabs.Screen
-        name="tasks"
-        options={{
-          title: 'Tasks',
-          tabBarIcon: TasksIcon,
-        }}
-      />
-      <Tabs.Screen
-        name="food"
-        options={{
-          title: 'Food',
-          tabBarIcon: FoodIcon,
-        }}
-      />
-      <Tabs.Screen
-        name="stats"
-        options={{
-          title: 'Stats',
-          tabBarIcon: StatsIcon,
-        }}
-      />
-    </Tabs>
-    
-    {/* Full-Screen Alarm Modal */}
-    <AlarmModal
-      visible={showAlarm}
-      taskTitle={alarmTask?.title || ''}
-      taskDescription={alarmTask?.description}
-      onDismiss={handleDismissAlarm}
-      onSnooze={handleSnoozeAlarm}
-    />
     </>
   );
 }
