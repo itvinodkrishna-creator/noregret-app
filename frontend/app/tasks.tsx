@@ -7,15 +7,10 @@ import { TaskCard } from '../components/TaskCard';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, isBefore, startOfToday } from 'date-fns';
 import * as Notifications from 'expo-notifications';
-import { registerForPushNotificationsAsync, scheduleTaskNotification, cancelNotification } from '../utils/notifications';
+import * as DocumentPicker from 'expo-document-picker';
+import { registerForPushNotificationsAsync, scheduleTaskNotification, cancelNotification, setupNotificationCategories, getBuiltInSounds } from '../utils/notifications';
 
 const categories = ['Work', 'Health', 'Food', 'Personal'] as const;
-const ringtones = [
-  { label: 'Default', value: 'default' },
-  { label: 'Bell', value: 'bell' },
-  { label: 'Chime', value: 'chime' },
-  { label: 'Alert', value: 'alert' },
-];
 
 export default function TasksScreen() {
   const { theme } = useTheme();
