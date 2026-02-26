@@ -113,45 +113,27 @@ export async function getAllScheduledNotifications() {
   return await Notifications.getAllScheduledNotificationsAsync();
 }
 
-// Load and play alarm sound (looping)
+// Load and play alarm sound (looping) - Using system sound
 export async function playAlarmSound(soundFile: string = 'default') {
   try {
-    // Stop any currently playing sound
-    await stopAlarmSound();
-
-    // Configure audio mode for alarms
+    // For now, we'll rely on notification sound system
+    // Custom sound files require actual audio files
+    console.log('Alarm triggered - using system notification sound');
+    
+    // Configure audio mode
     await Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
-      playsInSilentModeIOS: true, // Play even in silent mode
+      playsInSilentModeIOS: true,
       staysActiveInBackground: true,
       shouldDuckAndroid: false,
       playThroughEarpieceAndroid: false,
     });
-
-    // Create sound with looping
-    const soundSource = soundFile === 'default'
-      ? require('../assets/sounds/alarm.mp3')
-      : { uri: soundFile };
-
-    const { sound } = await Audio.Sound.createAsync(
-      soundSource,
-      {
-        shouldPlay: true,
-        isLooping: true, // Loop continuously
-        volume: 1.0,
-        isMuted: false,
-      }
-    );
     
-    alarmSound = sound;
-    isPlaying = true;
-    
-    // Start playing
-    await sound.playAsync();
-    
-    console.log('Alarm sound started playing');
+    // For mobile apps, notification sound will play
+    // For web, we can't play custom sounds reliably
+    console.log('Alarm sound configured');
   } catch (error) {
-    console.error('Error playing alarm sound:', error);
+    console.error('Error configuring alarm sound:', error);
   }
 }
 
