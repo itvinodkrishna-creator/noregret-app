@@ -202,22 +202,23 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
         </View>
       </View>
 
-      {/* iOS Date Picker Modal */}
+      {/* iOS Date Picker Modal - Auto closes after selection */}
       {Platform.OS === 'ios' && showDatePicker && (
         <Modal visible={true} transparent animationType="slide">
-          <View style={styles.pickerModal}>
+          <TouchableOpacity 
+            style={styles.pickerModal} 
+            activeOpacity={1} 
+            onPress={() => setShowDatePicker(false)}
+          >
             <View style={[styles.pickerContainer, { backgroundColor: theme.surface }]}>
               <View style={styles.pickerHeader}>
-                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                  <Text style={[styles.pickerCancel, { color: theme.textSecondary }]}>Cancel</Text>
-                </TouchableOpacity>
                 <Text style={[styles.pickerTitle, { color: theme.text }]}>Select Date</Text>
-                <TouchableOpacity onPress={confirmDateSelection}>
-                  <Text style={[styles.pickerDone, { color: theme.primary }]}>Done</Text>
+                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                  <Ionicons name="close-circle" size={28} color={theme.textSecondary} />
                 </TouchableOpacity>
               </View>
               <DateTimePicker
-                value={tempDate}
+                value={taskDate}
                 mode="date"
                 display="spinner"
                 minimumDate={new Date()}
@@ -226,26 +227,27 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
                 textColor={theme.text}
               />
             </View>
-          </View>
+          </TouchableOpacity>
         </Modal>
       )}
 
-      {/* iOS Time Picker Modal */}
+      {/* iOS Time Picker Modal - Auto closes after selection */}
       {Platform.OS === 'ios' && showTimePicker && (
         <Modal visible={true} transparent animationType="slide">
-          <View style={styles.pickerModal}>
+          <TouchableOpacity 
+            style={styles.pickerModal} 
+            activeOpacity={1} 
+            onPress={() => setShowTimePicker(false)}
+          >
             <View style={[styles.pickerContainer, { backgroundColor: theme.surface }]}>
               <View style={styles.pickerHeader}>
-                <TouchableOpacity onPress={() => setShowTimePicker(false)}>
-                  <Text style={[styles.pickerCancel, { color: theme.textSecondary }]}>Cancel</Text>
-                </TouchableOpacity>
                 <Text style={[styles.pickerTitle, { color: theme.text }]}>Select Time</Text>
-                <TouchableOpacity onPress={confirmTimeSelection}>
-                  <Text style={[styles.pickerDone, { color: theme.primary }]}>Done</Text>
+                <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                  <Ionicons name="close-circle" size={28} color={theme.textSecondary} />
                 </TouchableOpacity>
               </View>
               <DateTimePicker
-                value={tempDate}
+                value={taskDate}
                 mode="time"
                 display="spinner"
                 onChange={onTimeChange}
@@ -253,7 +255,7 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
                 textColor={theme.text}
               />
             </View>
-          </View>
+          </TouchableOpacity>
         </Modal>
       )}
 
