@@ -401,23 +401,63 @@ export default function TasksScreen() {
 
   const minDate = startOfToday();
 
-  // Handle date selection in form
+  // Temp values for iOS pickers (used before confirming)
+  const [tempDate, setTempDate] = useState(new Date());
+  const [tempTime, setTempTime] = useState(new Date());
+
+  // Handle date selection in form (iOS needs Done button)
   const handleFormDateChange = (event: any, date?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
     if (date) {
-      setSelectedDate(date);
-      // Auto close on iOS after selection
+      if (Platform.OS === 'android') {
+        setSelectedDate(date);
+        setShowDatePicker(false);
+      } else {
+        // iOS: just update temp value, wait for Done button
+        setTempDate(date);
+      }
+    } else if (Platform.OS === 'android') {
       setShowDatePicker(false);
     }
   };
 
-  // Handle time selection in form
+  // Handle time selection in form (iOS needs Done button)
   const handleFormTimeChange = (event: any, time?: Date) => {
-    if (Platform.OS === 'android') {
+    if (time) {
+      if (Platform.OS === 'android') {
+        setSelectedTime(time);
+        setShowTimePicker(false);
+      } else {
+        // iOS: just update temp value, wait for Done button
+        setTempTime(time);
+      }
+    } else if (Platform.OS === 'android') {
       setShowTimePicker(false);
     }
+  };
+
+  // Confirm date selection (iOS)
+  const confirmDateSelection = () => {
+    setSelectedDate(tempDate);
+    setShowDatePicker(false);
+  };
+
+  // Confirm time selection (iOS)
+  const confirmTimeSelection = () => {
+    setSelectedTime(tempTime);
+    setShowTimePicker(false);
+  };
+
+  // Open date picker
+  const openDatePicker = () => {
+    setTempDate(selectedDate);
+    setShowDatePicker(true);
+  };
+
+  // Open time picker
+  const openTimePicker = () => {
+    setTempTime(selectedTime);
+    setShowTimePicker(true);
+  };
     if (time) {
       setSelectedTime(time);
       // Auto close on iOS after selection
