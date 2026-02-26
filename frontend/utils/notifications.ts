@@ -244,21 +244,46 @@ export function setupNotificationListeners(
     }
   });
 
-  // Handle notification tapped (app in background/closed)
+  // Handle notification tapped or action button pressed
   const responseSubscription = Notifications.addNotificationResponseReceivedListener(async response => {
     const data = response.notification.request.content.data;
     const actionIdentifier = response.actionIdentifier;
 
+    console.log('👆 Notification action:', actionIdentifier);
+
     if (data.action === 'alarm') {
-      console.log('👆 Alarm notification tapped:', actionIdentifier);
-      
-      if (actionIdentifier === 'stop' || actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
-        const soundUrl = data.soundUrl as string || 'default';
+      const taskId = data.taskId as string;
+      const taskTitle = data.taskTitle as string;
+      const soundUrl = data.soundUrl as string || 'default';
+
+      // Handle different actions
+      if (actionIdentifier === 'stop') {
+        // Stop button pressed on notification
+        console.log('🛑 STOP pressed from notification');
+        await stopAlarmSound();
+        await Notifications.dismissNotificationAsync(response.notification.request.identifier);
+        // Trigger the alarm UI to mark as complete
+        onAlarmTrigger(taskId, taskTitle, soundUrl);
+        
+      } else if (actionIdentifier === 'snooze5') {
+        // Snooze 5 min pressed on notification
+        console.log('⏰ Snooze 5min pressed from notification');
+        await stopAlarmSound();
+        await snoozeNotification(taskId, taskTitle, 5, soundUrl);
+        await Notifications.dismissNotificationAsync(response.notification.request.identifier);
+        
+      } else if (actionIdentifier === 'snooze10') {
+        // Snooze 10 min pressed on notification
+        console.log('⏰ Snooze 10min pressed from notification');
+        await stopAlarmSound();
+        await snoozeNotification(taskId, taskTitle, 10, soundUrl);
+        await Notifications.dismissNotificationAsync(response.notification.request.identifier);
+        
+      } else {
+        // Default action (tapped notification)
+        console.log('👆 Notification tapped - showing full alarm');
         playAlarmSound(soundUrl);
-        onAlarmTrigger(data.taskId as string, data.taskTitle as string, soundUrl);
-      } else if (actionIdentifier === 'wait') {
-        // Snooze for 5 minutes
-        await snoozeNotification(data.taskId as string, data.taskTitle as string, 5, data.soundUrl as string);
+        onAlarmTrigger(taskId, taskTitle, soundUrl);
       }
     }
   });
