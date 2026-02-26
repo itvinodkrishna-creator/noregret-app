@@ -61,30 +61,33 @@ export async function scheduleTaskNotification(
   try {
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
-        title: '⏰ TASK REMINDER',
-        body: title,
+        title: '⏰ TASK REMINDER - ALARM!',
+        body: `🔔 ${title}`,
         data: { 
           taskId, 
           action: 'alarm',
           taskTitle: title,
           alarmTime: time.toISOString(),
         },
-        sound: true,
+        sound: 'default', // Use system default sound
         priority: Notifications.AndroidNotificationPriority.MAX,
-        vibrate: [0, 250, 250, 250],
+        vibrate: [0, 500, 200, 500, 200, 500], // Strong vibration pattern
         badge: 1,
-        // Full screen intent (Android)
+        // Android specific
         ...(Platform.OS === 'android' && {
           androidMode: Notifications.AndroidNotificationVisibility.PUBLIC,
           sticky: true,
+          autoDismiss: false,
         }),
       },
       trigger: {
         date: time,
         channelId: 'alarm',
+        repeats: false,
       },
     });
 
+    console.log(`Notification scheduled for ${time.toISOString()}, ID: ${notificationId}`);
     return notificationId;
   } catch (error) {
     console.error('Error scheduling notification:', error);
