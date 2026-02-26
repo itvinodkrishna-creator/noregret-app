@@ -17,7 +17,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ icon, label, value, color 
   return (
     <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
       <View style={[styles.iconContainer, { backgroundColor: iconColor + '20' }]}>
-        <Ionicons name={icon} size={24} color={iconColor} />
+        <Ionicons name={icon} size={18} color={iconColor} />
       </View>
       <Text style={[styles.value, { color: theme.text }]}>{value}</Text>
       <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
@@ -28,27 +28,27 @@ export const StatsCard: React.FC<StatsCardProps> = ({ icon, label, value, color 
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    padding: 16,
-    borderRadius: 12,
+    padding: 10,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
-    marginHorizontal: 6,
+    marginHorizontal: 4,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
-  },
-  value: {
-    fontSize: 24,
-    fontWeight: 'bold',
     marginBottom: 4,
   },
+  value: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
   label: {
-    fontSize: 12,
+    fontSize: 10,
     textAlign: 'center',
   },
 });
