@@ -35,19 +35,27 @@ function TabLayout() {
     
     // Set up alarm notification listeners that automatically show alarm
     const unsubscribe = setupNotificationListeners((taskId: string, title: string, soundUrl?: string) => {
-      console.log('🚨 ALARM TRIGGERED - Showing full screen');
+      console.log('🚨 ALARM TRIGGERED - Showing full screen alarm');
       const task = tasks.find(t => t._id === taskId);
+      
+      // Set alarm data - this will make modal visible
       setAlarmTask({
         id: taskId,
         title,
         description: task?.description,
       });
-      setShowAlarm(true);
-      // Sound is already playing from setupNotificationListeners
+      setShowAlarm(true); // Show modal and keep it visible
+      
+      console.log('✅ Alarm modal state set to TRUE - should stay visible');
     });
     
     return unsubscribe;
   }, [tasks]);
+
+  // Log when showAlarm changes
+  useEffect(() => {
+    console.log(`📊 Alarm modal visibility: ${showAlarm ? 'VISIBLE' : 'HIDDEN'}`);
+  }, [showAlarm]);
 
   const handleDismissAlarm = async () => {
     console.log('🛑 STOP pressed - Dismissing alarm');
