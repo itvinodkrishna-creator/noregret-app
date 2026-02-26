@@ -196,14 +196,16 @@ export async function playAlarmSound(soundUrl: string = 'default') {
 export async function stopAlarmSound() {
   try {
     if (audioPlayer) {
-      await audioPlayer.pause();
-      audioPlayer.remove();
+      await (audioPlayer as any).stopAsync();
+      await (audioPlayer as any).unloadAsync();
       audioPlayer = null;
       isPlaying = false;
       console.log('✅ Alarm sound stopped');
     }
   } catch (error) {
     console.error('Error stopping alarm sound:', error);
+    audioPlayer = null;
+    isPlaying = false;
   }
 }
 
