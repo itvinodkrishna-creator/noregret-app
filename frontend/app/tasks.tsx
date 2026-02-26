@@ -240,6 +240,56 @@ export default function TasksScreen() {
     showToast('Task Completed!', 'success');
   };
 
+  // New handler for date change from TaskCard
+  const handleDateChange = async (task: Task, newDate: Date) => {
+    if (!task._id) return;
+    
+    playClickSound(preferences.soundEnabled);
+    cancelAlarmsForTask(task._id);
+    
+    let alarmId: string | undefined;
+    if (task.reminderEnabled) {
+      const now = new Date();
+      const msUntilAlarm = newDate.getTime() - now.getTime();
+      if (msUntilAlarm >= 60000) {
+        try {
+          alarmId = scheduleAlarm(task._id, task.title, newDate, task.ringtone || 'default');
+        } catch (error) {}
+      }
+    }
+    
+    await updateTask(task._id, { 
+      time: newDate.toISOString(),
+      notificationId: alarmId,
+    });
+    showToast('Date Updated!', 'success');
+  };
+
+  // New handler for time change from TaskCard
+  const handleTimeChange = async (task: Task, newTime: Date) => {
+    if (!task._id) return;
+    
+    playClickSound(preferences.soundEnabled);
+    cancelAlarmsForTask(task._id);
+    
+    let alarmId: string | undefined;
+    if (task.reminderEnabled) {
+      const now = new Date();
+      const msUntilAlarm = newTime.getTime() - now.getTime();
+      if (msUntilAlarm >= 60000) {
+        try {
+          alarmId = scheduleAlarm(task._id, task.title, newTime, task.ringtone || 'default');
+        } catch (error) {}
+      }
+    }
+    
+    await updateTask(task._id, { 
+      time: newTime.toISOString(),
+      notificationId: alarmId,
+    });
+    showToast('Time Updated!', 'success');
+  };
+
   // Quick date edit - Opens modal with date picker
   const handleQuickDateEdit = (task: Task) => {
     playClickSound(preferences.soundEnabled);
