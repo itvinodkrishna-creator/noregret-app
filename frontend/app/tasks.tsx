@@ -587,6 +587,46 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     borderRadius: 12,
+  reminderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  reminderLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ringtoneList: {
+    borderWidth: 1,
+    borderRadius: 12,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  ringtoneItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  ringtoneText: {
+    fontSize: 16,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  warningText: {
+    fontSize: 14,
+    marginLeft: 8,
+    flex: 1,
+  },
+
     alignItems: 'center',
   },
   saveButtonText: {
