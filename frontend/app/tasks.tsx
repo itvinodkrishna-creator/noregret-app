@@ -811,70 +811,68 @@ export default function TasksScreen() {
         </View>
       </Modal>
 
-      {/* Date Picker Modal - Bottom Sheet Style */}
-      {showDatePicker && (
-        <Modal visible={true} transparent animationType="slide" onRequestClose={() => setShowDatePicker(false)}>
-          <View style={styles.dateTimePickerOverlay}>
-            <TouchableOpacity 
-              style={styles.dateTimePickerBackdrop} 
-              activeOpacity={1} 
-              onPress={() => setShowDatePicker(false)}
-            />
-            <View style={[styles.dateTimePickerContainer, { backgroundColor: theme.surface }]}>
-              <View style={styles.dateTimePickerHeader}>
-                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                  <Text style={[styles.dateTimePickerCancel, { color: '#EF4444' }]}>Cancel</Text>
-                </TouchableOpacity>
-                <Text style={[styles.dateTimePickerTitle, { color: theme.text }]}>Select Date</Text>
-                <TouchableOpacity onPress={confirmDateSelection}>
-                  <Text style={[styles.dateTimePickerDone, { color: theme.primary }]}>Done</Text>
-                </TouchableOpacity>
-              </View>
-              <DateTimePicker
-                value={tempDate}
-                mode="date"
-                display="spinner"
-                minimumDate={minDate}
-                onChange={handleFormDateChange}
-                style={styles.dateTimePicker}
-                textColor={theme.text}
-              />
-            </View>
-          </View>
-        </Modal>
-      )}
+      {/* Date Picker Modal - Using Custom Picker */}
+      <DatePickerModal
+        visible={showDatePicker}
+        value={selectedDate}
+        minDate={minDate}
+        onSelect={(date) => {
+          setSelectedDate(date);
+        }}
+        onClose={() => setShowDatePicker(false)}
+      />
 
-      {/* Time Picker Modal - Bottom Sheet Style */}
-      {showTimePicker && (
-        <Modal visible={true} transparent animationType="slide" onRequestClose={() => setShowTimePicker(false)}>
-          <View style={styles.dateTimePickerOverlay}>
-            <TouchableOpacity 
-              style={styles.dateTimePickerBackdrop} 
-              activeOpacity={1} 
-              onPress={() => setShowTimePicker(false)}
-            />
-            <View style={[styles.dateTimePickerContainer, { backgroundColor: theme.surface }]}>
-              <View style={styles.dateTimePickerHeader}>
-                <TouchableOpacity onPress={() => setShowTimePicker(false)}>
-                  <Text style={[styles.dateTimePickerCancel, { color: '#EF4444' }]}>Cancel</Text>
-                </TouchableOpacity>
-                <Text style={[styles.dateTimePickerTitle, { color: theme.text }]}>Select Time</Text>
-                <TouchableOpacity onPress={confirmTimeSelection}>
-                  <Text style={[styles.dateTimePickerDone, { color: theme.primary }]}>Done</Text>
-                </TouchableOpacity>
-              </View>
-              <DateTimePicker
-                value={tempTime}
-                mode="time"
-                display="spinner"
-                onChange={handleFormTimeChange}
-                style={styles.dateTimePicker}
-                textColor={theme.text}
-              />
-            </View>
-          </View>
-        </Modal>
-      )}
+      {/* Time Picker Modal - Using Custom Picker */}
+      <TimePickerModal
+        visible={showTimePicker}
+        value={selectedTime}
+        onSelect={(time) => {
+          setSelectedTime(time);
+        }}
+        onClose={() => setShowTimePicker(false)}
+      />
+
+      {/* Quick Date Picker Modal - Using Custom Picker */}
+      <DatePickerModal
+        visible={showQuickDatePicker && !!quickEditTask}
+        value={quickEditTask ? parseISO(quickEditTask.time) : new Date()}
+        minDate={minDate}
+        onSelect={(date) => {
+          if (quickEditTask && quickEditTask._id) {
+            const newDateTime = new Date(date);
+            const oldTime = parseISO(quickEditTask.time);
+            newDateTime.setHours(oldTime.getHours());
+            newDateTime.setMinutes(oldTime.getMinutes());
+            handleDateChange(quickEditTask, newDateTime);
+          }
+          setShowQuickDatePicker(false);
+          setQuickEditTask(null);
+        }}
+        onClose={() => {
+          setShowQuickDatePicker(false);
+          setQuickEditTask(null);
+        }}
+      />
+
+      {/* Quick Time Picker Modal - Using Custom Picker */}
+      <TimePickerModal
+        visible={showQuickTimePicker && !!quickEditTask}
+        value={quickEditTask ? parseISO(quickEditTask.time) : new Date()}
+        onSelect={(time) => {
+          if (quickEditTask && quickEditTask._id) {
+            const newDateTime = parseISO(quickEditTask.time);
+            newDateTime.setHours(time.getHours());
+            newDateTime.setMinutes(time.getMinutes());
+            handleTimeChange(quickEditTask, newDateTime);
+          }
+          setShowQuickTimePicker(false);
+          setQuickEditTask(null);
+        }}
+        onClose={() => {
+          setShowQuickTimePicker(false);
+          setQuickEditTask(null);
+        }}
+      />
     </View>
   );
 }
