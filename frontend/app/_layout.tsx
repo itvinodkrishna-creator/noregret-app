@@ -28,8 +28,13 @@ function TabLayout() {
 
   useEffect(() => {
     const initialize = async () => {
-      await loadData();
-      setInitializing(false);
+      try {
+        await loadData();
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setInitializing(false);
+      }
     };
     initialize();
   }, [loadData]);
