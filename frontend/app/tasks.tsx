@@ -5,10 +5,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
 import { TaskCard } from '../components/TaskCard';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { format, isBefore, startOfToday } from 'date-fns';
-import * as Notifications from 'expo-notifications';
+import { format, startOfToday } from 'date-fns';
 import * as DocumentPicker from 'expo-document-picker';
-import { registerForPushNotificationsAsync, scheduleTaskNotification, cancelNotification, setupNotificationCategories, getBuiltInSounds } from '../utils/notifications';
+import { registerForPushNotificationsAsync, getBuiltInSounds } from '../utils/notifications';
+import { scheduleAlarm, cancelAlarmsForTask } from '../utils/alarmScheduler';
 
 const categories = ['Work', 'Health', 'Food', 'Personal'] as const;
 
@@ -23,8 +23,16 @@ export default function TasksScreen() {
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedTime, setSelectedTime] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const date = new Date();
+    date.setMinutes(date.getMinutes() + 5);
+    return date;
+  });
+  const [selectedTime, setSelectedTime] = useState(() => {
+    const time = new Date();
+    time.setMinutes(time.getMinutes() + 5);
+    return time;
+  });
   const [selectedCategory, setSelectedCategory] = useState<typeof categories[number]>('Personal');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -35,8 +43,6 @@ export default function TasksScreen() {
   useEffect(() => {
     loadData();
     requestNotificationPermissions();
-    setupNotificationHandlers();
-    setupNotificationCategories(); // Set up action buttons
   }, []);
 
   const pickAudioFile = async () => {
@@ -54,7 +60,6 @@ export default function TasksScreen() {
           url: audio.uri,
         };
         
-        // Add to ringtones list if not already there
         if (!ringtones.find(r => r.value === audio.uri)) {
           setRingtones([...ringtones, customSound]);
         }
@@ -74,73 +79,7 @@ export default function TasksScreen() {
       setPermissionGranted(true);
     } catch (error) {
       console.error('Error requesting notification permissions:', error);
-    }
-  };
-
-  const setupNotificationHandlers = () => {
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data;
-      if (data.action === 'reminder' && data.taskId) {
-        handleNotificationResponse(data.taskId as string);
-      }
-    });
-
-    return () => {
-      responseSubscription.remove();
-    };
-  };
-
-  const handleNotificationResponse = (taskId: string) => {
-    const task = tasks.find(t => t._id === taskId);
-    if (task) {
-      Alert.alert(
-        '⏰ Task Reminder',
-        task.title,
-        [
-          {
-            text: '✅ Mark Done',
-            onPress: () => completeTask(taskId),
-          },
-          {
-            text: '⏰ Snooze 5 min',
-            onPress: () => snoozeTask(taskId, 5),
-          },
-          {
-            text: '⏰ Snooze 10 min',
-            onPress: () => snoozeTask(taskId, 10),
-          },
-          {
-            text: 'Dismiss',
-            style: 'cancel',
-          },
-        ]
-      );
-    }
-  };
-
-  const snoozeTask = async (taskId: string, minutes: number) => {
-    const task = tasks.find(t => t._id === taskId);
-    if (task) {
-      const snoozeTime = new Date(Date.now() + minutes * 60 * 1000);
-      
-      if (task.notificationId) {
-        await cancelNotification(task.notificationId);
-      }
-      
-      const notificationId = await scheduleTaskNotification(
-        taskId,
-        task.title,
-        snoozeTime,
-        task.ringtone || 'default'
-      );
-      
-      await useAppStore.getState().updateTask(taskId, {
-        status: 'snoozed',
-        snoozedUntil: snoozeTime.toISOString(),
-        notificationId,
-      });
-      
-      Alert.alert('Snoozed', `Reminder snoozed for ${minutes} minutes`);
+      setPermissionGranted(true); // Allow on web
     }
   };
 
@@ -154,6 +93,7 @@ export default function TasksScreen() {
       return;
     }
 
+    // Combine date and time
     const taskDateTime = new Date(selectedDate);
     taskDateTime.setHours(selectedTime.getHours());
     taskDateTime.setMinutes(selectedTime.getMinutes());
@@ -161,46 +101,48 @@ export default function TasksScreen() {
     taskDateTime.setMilliseconds(0);
 
     const now = new Date();
-    const minutesUntil = Math.floor((taskDateTime.getTime() - now.getTime()) / (1000 * 60));
+    const msUntilAlarm = taskDateTime.getTime() - now.getTime();
+    const minutesUntil = Math.floor(msUntilAlarm / (1000 * 60));
     
-    console.log('🕐 Current time:', now.toISOString());
-    console.log('📅 Task time:', taskDateTime.toISOString());
-    console.log(`⏱️ Minutes until alarm: ${minutesUntil}`);
+    console.log('🕐 Creating task with alarm:');
+    console.log(`   Current time: ${now.toLocaleTimeString()}`);
+    console.log(`   Task time: ${taskDateTime.toLocaleTimeString()}`);
+    console.log(`   Minutes until alarm: ${minutesUntil}`);
     
-    // CRITICAL: Must be at least 2 minutes in the future
-    if (minutesUntil < 2) {
+    // CRITICAL: Must be at least 1 minute in the future
+    if (msUntilAlarm < 60000) {
       Alert.alert(
         '❌ Invalid Time', 
-        `Please select a time at least 2 minutes in the future.\n\nCurrent: ${format(now, 'h:mm a')}\nSelected: ${format(taskDateTime, 'h:mm a')}\n\nPlease add at least 2 minutes.`
+        `Please select a time at least 1 minute in the future.\n\nCurrent: ${format(now, 'h:mm a')}\nSelected: ${format(taskDateTime, 'h:mm a')}`
       );
       return;
     }
 
-    console.log(`✅ Valid future time: ${minutesUntil} minutes from now`);
+    let alarmId: string | undefined;
+    const taskId = Date.now().toString();
 
-    let notificationId: string | undefined;
-
-    // Schedule notification ONLY if reminder is enabled
-    if (reminderEnabled && permissionGranted) {
+    // Schedule alarm using our custom scheduler (works on web!)
+    if (reminderEnabled) {
       try {
-        const taskId = Date.now().toString();
-        console.log(`📅 Scheduling notification for ${taskDateTime.toISOString()}`);
+        console.log('📅 Scheduling alarm...');
         
-        notificationId = await scheduleTaskNotification(
+        alarmId = scheduleAlarm(
           taskId,
           title.trim(),
           taskDateTime,
-          selectedRingtone
+          selectedRingtone,
+          description.trim()
         );
         
-        console.log(`✅ Notification scheduled! ID: ${notificationId}`);
-        console.log(`⏰ Alarm will trigger in exactly ${minutesUntil} minutes`);
+        console.log(`✅ Alarm scheduled! ID: ${alarmId}`);
+        console.log(`⏰ Will trigger in ${minutesUntil} minutes`);
       } catch (error) {
-        console.error('❌ Error scheduling notification:', error);
-        Alert.alert('Reminder Error', 'Could not schedule reminder. Task will be created without reminder.');
+        console.error('❌ Error scheduling alarm:', error);
+        Alert.alert('Alarm Error', 'Could not schedule alarm. Task will be created without reminder.');
       }
     }
 
+    // Save task
     await addTask({
       title: title.trim(),
       description: description.trim(),
@@ -208,13 +150,12 @@ export default function TasksScreen() {
       category: selectedCategory,
       reminderEnabled,
       ringtone: selectedRingtone,
-      notificationId,
+      notificationId: alarmId,
     });
 
-    // Reset form
+    // Reset form with future default time
     setTitle('');
     setDescription('');
-    // Set default time to current time + 5 minutes
     const defaultTime = new Date();
     defaultTime.setMinutes(defaultTime.getMinutes() + 5);
     setSelectedDate(defaultTime);
@@ -223,23 +164,23 @@ export default function TasksScreen() {
     setSelectedRingtone('default');
     setShowAddModal(false);
     
-    // Show success message with scheduled time
+    // Show success message
     const timeStr = format(taskDateTime, 'MMM dd, h:mm a');
     Alert.alert(
       '✅ Task Created!', 
       reminderEnabled 
-        ? `⏰ Reminder scheduled for:\n${timeStr}\n\n⏱️ Alarm will ring in ${minutesUntil} minutes` 
+        ? `⏰ Alarm set for:\n${timeStr}\n\n⏱️ Will ring in ${minutesUntil} minute${minutesUntil !== 1 ? 's' : ''}` 
         : 'Task created without reminder'
     );
     
-    console.log('✅ Task saved - NO alarm now, will trigger at scheduled time');
+    console.log('✅ Task saved successfully');
   };
 
   const minDate = startOfToday();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Header */}
+      {/* Header with Add Button */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.text }]}>Tasks</Text>
         <TouchableOpacity 
@@ -249,6 +190,15 @@ export default function TasksScreen() {
           <Ionicons name="add" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
+
+      {/* Quick Add Task Button at top */}
+      <TouchableOpacity 
+        style={[styles.quickAddButton, { backgroundColor: theme.primary + '15', borderColor: theme.primary }]}
+        onPress={() => setShowAddModal(true)}
+      >
+        <Ionicons name="add-circle" size={24} color={theme.primary} />
+        <Text style={[styles.quickAddText, { color: theme.primary }]}>Add New Task</Text>
+      </TouchableOpacity>
 
       {/* Filter Tabs */}
       <View style={styles.filterContainer}>
@@ -280,7 +230,7 @@ export default function TasksScreen() {
             <Ionicons name="clipboard-outline" size={64} color={theme.textSecondary} />
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No tasks found</Text>
             <TouchableOpacity onPress={() => setShowAddModal(true)}>
-              <Text style={[styles.addText, { color: theme.primary }]}>Add a new task</Text>
+              <Text style={[styles.addLinkText, { color: theme.primary }]}>Add a new task</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -289,7 +239,12 @@ export default function TasksScreen() {
               key={task._id}
               task={task}
               onPress={() => {}}
-              onComplete={() => task._id && completeTask(task._id)}
+              onComplete={() => {
+                if (task._id) {
+                  completeTask(task._id);
+                  cancelAlarmsForTask(task._id);
+                }
+              }}
             />
           ))
         )}
@@ -415,8 +370,8 @@ export default function TasksScreen() {
               <View style={styles.reminderRow}>
                 <View style={styles.reminderLabel}>
                   <Ionicons name="notifications" size={20} color={theme.primary} />
-                  <Text style={[styles.label, { color: theme.text, marginTop: 0, marginLeft: 8 }]}>
-                    Enable Reminder
+                  <Text style={[styles.reminderText, { color: theme.text }]}>
+                    Enable Alarm
                   </Text>
                 </View>
                 <Switch
@@ -430,13 +385,13 @@ export default function TasksScreen() {
               {/* Ringtone Picker */}
               {reminderEnabled && (
                 <>
-                  <Text style={[styles.label, { color: theme.text }]}>Choose Reminder Sound</Text>
+                  <Text style={[styles.label, { color: theme.text }]}>Choose Alarm Sound</Text>
                   <TouchableOpacity
                     style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
                     onPress={() => setShowRingtonePicker(!showRingtonePicker)}
                   >
                     <Ionicons name="musical-notes" size={20} color={theme.text} />
-                    <Text style={[styles.pickerText, { color: theme.text }]}>
+                    <Text style={[styles.pickerText, { color: theme.text, flex: 1 }]}>
                       {ringtones.find(r => r.value === selectedRingtone)?.label || 'Default'}
                     </Text>
                     <Ionicons name={showRingtonePicker ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
@@ -480,15 +435,6 @@ export default function TasksScreen() {
                   )}
                 </>
               )}
-
-              {!permissionGranted && reminderEnabled && (
-                <View style={[styles.warningBox, { backgroundColor: theme.warning + '20', borderColor: theme.warning }]}>
-                  <Ionicons name="warning" size={20} color={theme.warning} />
-                  <Text style={[styles.warningText, { color: theme.text }]}>
-                    Notification permissions not granted. Reminders won't work.
-                  </Text>
-                </View>
-              )}
             </ScrollView>
 
             {/* Action Buttons */}
@@ -523,7 +469,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 60,
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   title: {
     fontSize: 32,
@@ -535,6 +481,22 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  quickAddButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+  },
+  quickAddText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   filterContainer: {
     flexDirection: 'row',
@@ -567,7 +529,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
-  addText: {
+  addLinkText: {
     fontSize: 16,
     fontWeight: '600',
   },
@@ -636,6 +598,49 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  reminderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  reminderLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reminderText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  ringtoneList: {
+    borderWidth: 1,
+    borderRadius: 12,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  ringtoneItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  ringtoneText: {
+    fontSize: 16,
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    backgroundColor: 'transparent',
+  },
+  uploadButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
   modalActions: {
     flexDirection: 'row',
     marginTop: 24,
@@ -655,59 +660,6 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     borderRadius: 12,
-  reminderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  reminderLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ringtoneList: {
-    borderWidth: 1,
-    borderRadius: 12,
-    marginTop: 8,
-    overflow: 'hidden',
-  },
-  ringtoneItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-  },
-  ringtoneText: {
-    fontSize: 16,
-  },
-  warningBox: {
-    flexDirection: 'row',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginTop: 16,
-    alignItems: 'center',
-  },
-  warningText: {
-    fontSize: 14,
-    marginLeft: 8,
-    flex: 1,
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: 'transparent',
-  },
-  uploadButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-
-
     alignItems: 'center',
   },
   saveButtonText: {
