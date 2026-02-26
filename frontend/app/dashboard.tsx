@@ -50,16 +50,24 @@ export default function Dashboard() {
           <Text style={[styles.greeting, { color: theme.textSecondary }]}>Welcome back!</Text>
           <Text style={[styles.title, { color: theme.text }]}>LifeTracker</Text>
         </View>
-        <TouchableOpacity 
-          onPress={toggleTheme}
-          style={[styles.themeButton, { backgroundColor: theme.card }]}
-        >
-          <Ionicons 
-            name={isDark ? 'sunny' : 'moon'} 
-            size={24} 
-            color={theme.text} 
-          />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            onPress={() => router.push('/tasks')}
+            style={[styles.addTaskButton, { backgroundColor: theme.primary }]}
+          >
+            <Ionicons name="add" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={toggleTheme}
+            style={[styles.themeButton, { backgroundColor: theme.card }]}
+          >
+            <Ionicons 
+              name={isDark ? 'sunny' : 'moon'} 
+              size={24} 
+              color={theme.text} 
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView 
