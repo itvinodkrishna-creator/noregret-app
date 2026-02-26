@@ -321,7 +321,6 @@ export default function TasksScreen() {
   const handleQuickDateEdit = (task: Task) => {
     playClickSound(preferences.soundEnabled);
     setQuickEditTask(task);
-    setSelectedDate(parseISO(task.time));
     setShowQuickDatePicker(true);
   };
 
@@ -329,143 +328,19 @@ export default function TasksScreen() {
   const handleQuickTimeEdit = (task: Task) => {
     playClickSound(preferences.soundEnabled);
     setQuickEditTask(task);
-    setSelectedTime(parseISO(task.time));
     setShowQuickTimePicker(true);
-  };
-
-  const handleQuickDateChange = async (event: any, date?: Date) => {
-    if (Platform.OS !== 'ios') {
-      setShowQuickDatePicker(false);
-    }
-    
-    if (date && quickEditTask && quickEditTask._id) {
-      const newDateTime = new Date(date);
-      const oldTime = parseISO(quickEditTask.time);
-      newDateTime.setHours(oldTime.getHours());
-      newDateTime.setMinutes(oldTime.getMinutes());
-      
-      cancelAlarmsForTask(quickEditTask._id);
-      
-      let alarmId: string | undefined;
-      if (quickEditTask.reminderEnabled) {
-        const now = new Date();
-        const msUntilAlarm = newDateTime.getTime() - now.getTime();
-        if (msUntilAlarm >= 60000) {
-          try {
-            alarmId = scheduleAlarm(quickEditTask._id, quickEditTask.title, newDateTime, quickEditTask.ringtone || 'default');
-          } catch (error) {}
-        }
-      }
-      
-      await updateTask(quickEditTask._id, { 
-        time: newDateTime.toISOString(),
-        notificationId: alarmId,
-      });
-      showToast('Date Updated!', 'success');
-      setQuickEditTask(null);
-    }
-  };
-
-  const handleQuickTimeChange = async (event: any, time?: Date) => {
-    if (Platform.OS !== 'ios') {
-      setShowQuickTimePicker(false);
-    }
-    
-    if (time && quickEditTask && quickEditTask._id) {
-      const newDateTime = parseISO(quickEditTask.time);
-      newDateTime.setHours(time.getHours());
-      newDateTime.setMinutes(time.getMinutes());
-      
-      cancelAlarmsForTask(quickEditTask._id);
-      
-      let alarmId: string | undefined;
-      if (quickEditTask.reminderEnabled) {
-        const now = new Date();
-        const msUntilAlarm = newDateTime.getTime() - now.getTime();
-        if (msUntilAlarm >= 60000) {
-          try {
-            alarmId = scheduleAlarm(quickEditTask._id, quickEditTask.title, newDateTime, quickEditTask.ringtone || 'default');
-          } catch (error) {}
-        }
-      }
-      
-      await updateTask(quickEditTask._id, { 
-        time: newDateTime.toISOString(),
-        notificationId: alarmId,
-      });
-      showToast('Time Updated!', 'success');
-      setQuickEditTask(null);
-    }
   };
 
   const minDate = startOfToday();
 
-  // Temp values for iOS pickers (used before confirming)
-  const [tempDate, setTempDate] = useState(new Date());
-  const [tempTime, setTempTime] = useState(new Date());
-
-  // Handle date selection in form (iOS needs Done button)
-  const handleFormDateChange = (event: any, date?: Date) => {
-    if (date) {
-      if (Platform.OS === 'android') {
-        setSelectedDate(date);
-        setShowDatePicker(false);
-      } else {
-        // iOS: just update temp value, wait for Done button
-        setTempDate(date);
-      }
-    } else if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
-  };
-
-  // Handle time selection in form (iOS needs Done button)
-  const handleFormTimeChange = (event: any, time?: Date) => {
-    if (time) {
-      if (Platform.OS === 'android') {
-        setSelectedTime(time);
-        setShowTimePicker(false);
-      } else {
-        // iOS: just update temp value, wait for Done button
-        setTempTime(time);
-      }
-    } else if (Platform.OS === 'android') {
-      setShowTimePicker(false);
-    }
-  };
-
-  // Confirm date selection (iOS)
-  const confirmDateSelection = () => {
-    setSelectedDate(tempDate);
-    setShowDatePicker(false);
-  };
-
-  // Confirm time selection (iOS)
-  const confirmTimeSelection = () => {
-    setSelectedTime(tempTime);
-    setShowTimePicker(false);
-  };
-
-  // Open date picker
+  // Open date picker for form
   const openDatePicker = () => {
-    setTempDate(selectedDate);
     setShowDatePicker(true);
   };
 
-  // Open time picker
+  // Open time picker for form
   const openTimePicker = () => {
-    setTempTime(selectedTime);
     setShowTimePicker(true);
-  };
-
-  // Cancel date picker
-  const cancelDatePicker = () => {
-    setShowDatePicker(false);
-  };
-
-  // Cancel time picker
-  const cancelTimePicker = () => {
-    setShowTimePicker(false);
   };
 
   const renderTaskForm = () => (
