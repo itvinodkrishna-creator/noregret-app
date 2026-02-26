@@ -1,18 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { Task, CATEGORY_CONFIG } from '../types';
 import { format, parseISO } from 'date-fns';
-import { DatePickerModal, TimePickerModal } from './CustomPickers';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface TaskCardProps {
   task: Task;
   onComplete: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  onDateChange: (date: Date) => void;
-  onTimeChange: (time: Date) => void;
+  onDateTimeChange: (newDateTime: Date) => void;
 }
 
 export const TaskCardWithActions: React.FC<TaskCardProps> = ({ 
@@ -20,14 +19,16 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
   onComplete, 
   onEdit,
   onDelete,
-  onDateChange,
-  onTimeChange,
+  onDateTimeChange,
 }) => {
   const { theme } = useTheme();
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  // Date/Time picker states
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(new Date());
   
   const isCompleted = task.status === 'completed';
   const taskDate = parseISO(task.time);
@@ -52,26 +53,80 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
     onEdit();
   };
 
-  const handleDateSelect = (newDate: Date) => {
-    // Keep the same time, just change the date
-    const updatedDate = new Date(newDate);
-    updatedDate.setHours(taskDate.getHours());
-    updatedDate.setMinutes(taskDate.getMinutes());
-    onDateChange(updatedDate);
+  // Open date picker
+  const openDatePicker = () => {
+    setTempDate(taskDate);
+    setShowDatePicker(true);
+    setShowMenu(false);
   };
 
-  const handleTimeSelect = (newTime: Date) => {
-    // Keep the same date, just change the time
-    const updatedTime = new Date(taskDate);
-    updatedTime.setHours(newTime.getHours());
-    updatedTime.setMinutes(newTime.getMinutes());
-    onTimeChange(updatedTime);
+  // Open time picker
+  const openTimePicker = () => {
+    setTempDate(taskDate);
+    setShowTimePicker(true);
+    setShowMenu(false);
+  };
+
+  // Handle date change
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    if (selectedDate && event.type !== 'dismissed') {
+      const newDateTime = new Date(selectedDate);
+      newDateTime.setHours(taskDate.getHours());
+      newDateTime.setMinutes(taskDate.getMinutes());
+      
+      if (Platform.OS === 'ios') {
+        setTempDate(newDateTime);
+      } else {
+        onDateTimeChange(newDateTime);
+      }
+    }
+  };
+
+  // Handle time change
+  const onTimeChange = (event: any, selectedTime?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+    }
+    
+    if (selectedTime && event.type !== 'dismissed') {
+      const newDateTime = new Date(taskDate);
+      newDateTime.setHours(selectedTime.getHours());
+      newDateTime.setMinutes(selectedTime.getMinutes());
+      
+      if (Platform.OS === 'ios') {
+        setTempDate(newDateTime);
+      } else {
+        onDateTimeChange(newDateTime);
+      }
+    }
+  };
+
+  // Confirm iOS date selection
+  const confirmDateSelection = () => {
+    const newDateTime = new Date(tempDate);
+    newDateTime.setHours(taskDate.getHours());
+    newDateTime.setMinutes(taskDate.getMinutes());
+    onDateTimeChange(newDateTime);
+    setShowDatePicker(false);
+  };
+
+  // Confirm iOS time selection
+  const confirmTimeSelection = () => {
+    const newDateTime = new Date(taskDate);
+    newDateTime.setHours(tempDate.getHours());
+    newDateTime.setMinutes(tempDate.getMinutes());
+    onDateTimeChange(newDateTime);
+    setShowTimePicker(false);
   };
 
   return (
     <>
       <View style={[styles.card, { backgroundColor: theme.card, borderColor: categoryColor }]}>
-        {/* Left: Checkbox */}
+        {/* Checkbox */}
         <TouchableOpacity 
           style={[
             styles.checkbox, 
@@ -87,7 +142,7 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
           )}
         </TouchableOpacity>
         
-        {/* Middle: Content */}
+        {/* Content */}
         <View style={styles.content}>
           <Text 
             style={[
@@ -104,39 +159,43 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
           </Text>
           
           <View style={styles.metaRow}>
-            {/* Category Badge */}
+            {/* Category */}
             <View style={[styles.categoryBadge, { backgroundColor: categoryColor + '20' }]}>
               <Ionicons name={categoryConfig.icon as any} size={12} color={categoryColor} />
               <Text style={[styles.categoryText, { color: categoryColor }]}>{task.category}</Text>
             </View>
             
-            {/* Clickable Date */}
+            {/* DATE - Tap to Edit */}
             <TouchableOpacity 
-              style={[styles.dateTimeButton, { backgroundColor: theme.primary + '15' }]} 
-              onPress={() => setShowDatePicker(true)}
+              style={[styles.editableButton, { backgroundColor: '#10B981' + '20' }]} 
+              onPress={openDatePicker}
+              activeOpacity={0.7}
             >
-              <Ionicons name="calendar" size={12} color={theme.primary} />
-              <Text style={[styles.dateTimeText, { color: theme.primary }]}>{date}</Text>
+              <Ionicons name="calendar" size={14} color="#10B981" />
+              <Text style={[styles.editableText, { color: '#10B981' }]}>{date}</Text>
+              <Ionicons name="pencil" size={10} color="#10B981" />
             </TouchableOpacity>
             
-            {/* Clickable Time */}
+            {/* TIME - Tap to Edit */}
             <TouchableOpacity 
-              style={[styles.dateTimeButton, { backgroundColor: theme.primary + '15' }]} 
-              onPress={() => setShowTimePicker(true)}
+              style={[styles.editableButton, { backgroundColor: '#F97316' + '20' }]} 
+              onPress={openTimePicker}
+              activeOpacity={0.7}
             >
-              <Ionicons name="time" size={12} color={theme.primary} />
-              <Text style={[styles.dateTimeText, { color: theme.primary }]}>{time}</Text>
+              <Ionicons name="time" size={14} color="#F97316" />
+              <Text style={[styles.editableText, { color: '#F97316' }]}>{time}</Text>
+              <Ionicons name="pencil" size={10} color="#F97316" />
             </TouchableOpacity>
           </View>
         </View>
         
-        {/* Right: Actions Menu */}
+        {/* Menu Button */}
         <View style={styles.rightSection}>
           {task.reminderEnabled && (
             <Ionicons name="notifications" size={16} color={categoryColor} style={{ marginRight: 8 }} />
           )}
           <TouchableOpacity 
-            style={[styles.menuButton, { backgroundColor: theme.border + '50' }]}
+            style={[styles.menuButton, { backgroundColor: theme.border }]}
             onPress={() => setShowMenu(true)}
           >
             <Ionicons name="ellipsis-vertical" size={18} color={theme.text} />
@@ -144,23 +203,83 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
         </View>
       </View>
 
-      {/* Custom Date Picker Modal */}
-      <DatePickerModal
-        visible={showDatePicker}
-        value={taskDate}
-        onSelect={handleDateSelect}
-        onClose={() => setShowDatePicker(false)}
-      />
+      {/* iOS Date Picker Modal */}
+      {Platform.OS === 'ios' && showDatePicker && (
+        <Modal visible={true} transparent animationType="slide">
+          <View style={styles.pickerModal}>
+            <View style={[styles.pickerContainer, { backgroundColor: theme.surface }]}>
+              <View style={styles.pickerHeader}>
+                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                  <Text style={[styles.pickerCancel, { color: theme.textSecondary }]}>Cancel</Text>
+                </TouchableOpacity>
+                <Text style={[styles.pickerTitle, { color: theme.text }]}>Select Date</Text>
+                <TouchableOpacity onPress={confirmDateSelection}>
+                  <Text style={[styles.pickerDone, { color: theme.primary }]}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={tempDate}
+                mode="date"
+                display="spinner"
+                minimumDate={new Date()}
+                onChange={onDateChange}
+                style={styles.picker}
+                textColor={theme.text}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
 
-      {/* Custom Time Picker Modal */}
-      <TimePickerModal
-        visible={showTimePicker}
-        value={taskDate}
-        onSelect={handleTimeSelect}
-        onClose={() => setShowTimePicker(false)}
-      />
+      {/* iOS Time Picker Modal */}
+      {Platform.OS === 'ios' && showTimePicker && (
+        <Modal visible={true} transparent animationType="slide">
+          <View style={styles.pickerModal}>
+            <View style={[styles.pickerContainer, { backgroundColor: theme.surface }]}>
+              <View style={styles.pickerHeader}>
+                <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                  <Text style={[styles.pickerCancel, { color: theme.textSecondary }]}>Cancel</Text>
+                </TouchableOpacity>
+                <Text style={[styles.pickerTitle, { color: theme.text }]}>Select Time</Text>
+                <TouchableOpacity onPress={confirmTimeSelection}>
+                  <Text style={[styles.pickerDone, { color: theme.primary }]}>Done</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={tempDate}
+                mode="time"
+                display="spinner"
+                onChange={onTimeChange}
+                style={styles.picker}
+                textColor={theme.text}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
 
-      {/* Actions Menu Modal */}
+      {/* Android Date Picker */}
+      {Platform.OS === 'android' && showDatePicker && (
+        <DateTimePicker
+          value={taskDate}
+          mode="date"
+          display="default"
+          minimumDate={new Date()}
+          onChange={onDateChange}
+        />
+      )}
+
+      {/* Android Time Picker */}
+      {Platform.OS === 'android' && showTimePicker && (
+        <DateTimePicker
+          value={taskDate}
+          mode="time"
+          display="default"
+          onChange={onTimeChange}
+        />
+      )}
+
+      {/* Menu Modal */}
       <Modal visible={showMenu} transparent animationType="fade" onRequestClose={() => setShowMenu(false)}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowMenu(false)}>
           <View style={[styles.menuContainer, { backgroundColor: theme.surface }]}>
@@ -171,12 +290,12 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
               <Text style={[styles.menuItemText, { color: theme.text }]}>Edit Task</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); setShowDatePicker(true); }}>
+            <TouchableOpacity style={styles.menuItem} onPress={openDatePicker}>
               <Ionicons name="calendar" size={22} color="#10B981" />
               <Text style={[styles.menuItemText, { color: theme.text }]}>Change Date</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.menuItem} onPress={() => { setShowMenu(false); setShowTimePicker(true); }}>
+            <TouchableOpacity style={styles.menuItem} onPress={openTimePicker}>
               <Ionicons name="time" size={22} color="#F97316" />
               <Text style={[styles.menuItemText, { color: theme.text }]}>Change Time</Text>
             </TouchableOpacity>
@@ -198,7 +317,7 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
         </TouchableOpacity>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation */}
       <Modal visible={showDeleteConfirm} transparent animationType="fade" onRequestClose={() => setShowDeleteConfirm(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.confirmContainer, { backgroundColor: theme.surface }]}>
@@ -207,7 +326,7 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
             </View>
             <Text style={[styles.confirmTitle, { color: theme.text }]}>Delete Task?</Text>
             <Text style={[styles.confirmMessage, { color: theme.textSecondary }]}>
-              Are you sure you want to delete "{task.title}"? This action cannot be undone.
+              Are you sure you want to delete this task?
             </Text>
             <View style={styles.confirmButtons}>
               <TouchableOpacity 
@@ -255,7 +374,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   metaRow: {
     flexDirection: 'row',
@@ -275,17 +394,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 4,
   },
-  dateTimeButton: {
+  editableButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
+    gap: 4,
   },
-  dateTimeText: {
-    fontSize: 11,
+  editableText: {
+    fontSize: 12,
     fontWeight: '600',
-    marginLeft: 4,
   },
   rightSection: {
     flexDirection: 'row',
@@ -293,12 +412,46 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   menuButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Picker Modal Styles
+  pickerModal: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  pickerContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 30,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  pickerCancel: {
+    fontSize: 16,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  pickerDone: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  picker: {
+    height: 200,
+  },
+  // Menu Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -341,6 +494,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  // Delete Confirmation
   confirmContainer: {
     width: '100%',
     maxWidth: 320,
@@ -365,7 +519,6 @@ const styles = StyleSheet.create({
   confirmMessage: {
     fontSize: 14,
     textAlign: 'center',
-    lineHeight: 20,
     marginBottom: 20,
   },
   confirmButtons: {
