@@ -280,13 +280,21 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   welcomeText: {
-    fontSize: 12,
-    marginBottom: 2,
+    fontSize: 11,
   },
-  brandName: {
-    fontSize: 28,
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  brandNO: {
+    fontSize: 32,
     fontWeight: '900',
-    letterSpacing: 2,
+    letterSpacing: 1,
+  },
+  brandRegret: {
+    fontSize: 18,
+    fontWeight: '500',
+    marginLeft: 2,
   },
   headerButtons: {
     flexDirection: 'row',
