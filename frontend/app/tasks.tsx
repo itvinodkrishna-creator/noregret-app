@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Platform, Switch, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Platform, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
-import { SwipeableTaskCard } from '../components/SwipeableTaskCard';
+import { TaskCardWithActions } from '../components/TaskCardWithActions';
 import { Toast } from '../components/Toast';
 import { Task, CATEGORY_CONFIG, CategoryType } from '../types';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -210,27 +210,14 @@ export default function TasksScreen() {
     showToast('Task Updated Successfully!', 'success');
   };
 
-  const handleDeleteTask = (task: Task) => {
+  const handleDeleteTask = async (task: Task) => {
     playClickSound(preferences.soundEnabled);
     
-    Alert.alert(
-      'Delete Task',
-      'Are you sure you want to delete this task?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: async () => {
-            if (task._id) {
-              cancelAlarmsForTask(task._id);
-              await deleteTask(task._id);
-              showToast('Task Deleted', 'info');
-            }
-          }
-        },
-      ]
-    );
+    if (task._id) {
+      cancelAlarmsForTask(task._id);
+      await deleteTask(task._id);
+      showToast('Task Deleted!', 'info');
+    }
   };
 
   const openEditModal = (task: Task) => {
@@ -246,14 +233,14 @@ export default function TasksScreen() {
     setShowEditModal(true);
   };
 
-  const handleCompleteTask = (taskId: string) => {
+  const handleCompleteTask = async (taskId: string) => {
     playClickSound(preferences.soundEnabled);
-    completeTask(taskId);
+    await completeTask(taskId);
     cancelAlarmsForTask(taskId);
     showToast('Task Completed!', 'success');
   };
 
-  // Quick date/time edit handlers
+  // Quick date edit - Opens modal with date picker
   const handleQuickDateEdit = (task: Task) => {
     playClickSound(preferences.soundEnabled);
     setQuickEditTask(task);
@@ -261,6 +248,7 @@ export default function TasksScreen() {
     setShowQuickDatePicker(true);
   };
 
+  // Quick time edit - Opens modal with time picker
   const handleQuickTimeEdit = (task: Task) => {
     playClickSound(preferences.soundEnabled);
     setQuickEditTask(task);
@@ -269,7 +257,9 @@ export default function TasksScreen() {
   };
 
   const handleQuickDateChange = async (event: any, date?: Date) => {
-    setShowQuickDatePicker(Platform.OS === 'ios');
+    if (Platform.OS !== 'ios') {
+      setShowQuickDatePicker(false);
+    }
     
     if (date && quickEditTask && quickEditTask._id) {
       const newDateTime = new Date(date);
@@ -277,7 +267,6 @@ export default function TasksScreen() {
       newDateTime.setHours(oldTime.getHours());
       newDateTime.setMinutes(oldTime.getMinutes());
       
-      // Cancel old alarm and reschedule
       cancelAlarmsForTask(quickEditTask._id);
       
       let alarmId: string | undefined;
@@ -296,19 +285,20 @@ export default function TasksScreen() {
         notificationId: alarmId,
       });
       showToast('Date Updated!', 'success');
+      setQuickEditTask(null);
     }
-    setQuickEditTask(null);
   };
 
   const handleQuickTimeChange = async (event: any, time?: Date) => {
-    setShowQuickTimePicker(Platform.OS === 'ios');
+    if (Platform.OS !== 'ios') {
+      setShowQuickTimePicker(false);
+    }
     
     if (time && quickEditTask && quickEditTask._id) {
       const newDateTime = parseISO(quickEditTask.time);
       newDateTime.setHours(time.getHours());
       newDateTime.setMinutes(time.getMinutes());
       
-      // Cancel old alarm and reschedule
       cancelAlarmsForTask(quickEditTask._id);
       
       let alarmId: string | undefined;
@@ -327,8 +317,8 @@ export default function TasksScreen() {
         notificationId: alarmId,
       });
       showToast('Time Updated!', 'success');
+      setQuickEditTask(null);
     }
-    setQuickEditTask(null);
   };
 
   const minDate = startOfToday();
@@ -360,20 +350,21 @@ export default function TasksScreen() {
         style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
         onPress={() => setShowDatePicker(true)}
       >
-        <Ionicons name="calendar-outline" size={20} color={theme.primary} />
+        <Ionicons name="calendar" size={20} color={theme.primary} />
         <Text style={[styles.pickerText, { color: theme.text }]}>
           {format(selectedDate, 'EEEE, MMM dd, yyyy')}
         </Text>
+        <Ionicons name="chevron-down" size={20} color={theme.textSecondary} />
       </TouchableOpacity>
 
       {showDatePicker && (
         <DateTimePicker
           value={selectedDate}
           mode="date"
-          display="default"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           minimumDate={minDate}
           onChange={(event, date) => {
-            setShowDatePicker(Platform.OS === 'ios');
+            if (Platform.OS !== 'ios') setShowDatePicker(false);
             if (date) setSelectedDate(date);
           }}
         />
@@ -384,19 +375,20 @@ export default function TasksScreen() {
         style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
         onPress={() => setShowTimePicker(true)}
       >
-        <Ionicons name="time-outline" size={20} color={theme.primary} />
+        <Ionicons name="time" size={20} color={theme.primary} />
         <Text style={[styles.pickerText, { color: theme.text }]}>
           {format(selectedTime, 'h:mm a')}
         </Text>
+        <Ionicons name="chevron-down" size={20} color={theme.textSecondary} />
       </TouchableOpacity>
 
       {showTimePicker && (
         <DateTimePicker
           value={selectedTime}
           mode="time"
-          display="default"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={(event, time) => {
-            setShowTimePicker(Platform.OS === 'ios');
+            if (Platform.OS !== 'ios') setShowTimePicker(false);
             if (time) setSelectedTime(time);
           }}
         />
@@ -532,10 +524,10 @@ export default function TasksScreen() {
         <Text style={[styles.quickAddText, { color: theme.primary }]}>Add New Task</Text>
       </TouchableOpacity>
 
-      {/* Swipe Hint */}
-      <View style={styles.swipeHint}>
-        <Text style={[styles.swipeHintText, { color: theme.textSecondary }]}>
-          ← Swipe left to delete • Swipe right to edit →
+      {/* Instructions */}
+      <View style={styles.instructionContainer}>
+        <Text style={[styles.instructionText, { color: theme.textSecondary }]}>
+          Tap ⋮ menu to Edit or Delete • Tap date/time to change quickly
         </Text>
       </View>
 
@@ -582,10 +574,9 @@ export default function TasksScreen() {
           </View>
         ) : (
           filteredTasks.map(task => (
-            <SwipeableTaskCard
+            <TaskCardWithActions
               key={task._id}
               task={task}
-              onPress={() => openEditModal(task)}
               onComplete={() => task._id && handleCompleteTask(task._id)}
               onEdit={() => openEditModal(task)}
               onDelete={() => handleDeleteTask(task)}
@@ -597,25 +588,53 @@ export default function TasksScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Quick Date Picker */}
-      {showQuickDatePicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display="default"
-          minimumDate={minDate}
-          onChange={handleQuickDateChange}
-        />
+      {/* Quick Date Picker Modal */}
+      {showQuickDatePicker && quickEditTask && (
+        <Modal visible={true} transparent animationType="fade">
+          <View style={styles.pickerModalOverlay}>
+            <View style={[styles.pickerModalContent, { backgroundColor: theme.surface }]}>
+              <Text style={[styles.pickerModalTitle, { color: theme.text }]}>Select Date</Text>
+              <DateTimePicker
+                value={selectedDate}
+                mode="date"
+                display="spinner"
+                minimumDate={minDate}
+                onChange={handleQuickDateChange}
+                style={{ height: 150 }}
+              />
+              <TouchableOpacity
+                style={[styles.pickerModalButton, { backgroundColor: theme.primary }]}
+                onPress={() => { setShowQuickDatePicker(false); setQuickEditTask(null); }}
+              >
+                <Text style={styles.pickerModalButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       )}
 
-      {/* Quick Time Picker */}
-      {showQuickTimePicker && (
-        <DateTimePicker
-          value={selectedTime}
-          mode="time"
-          display="default"
-          onChange={handleQuickTimeChange}
-        />
+      {/* Quick Time Picker Modal */}
+      {showQuickTimePicker && quickEditTask && (
+        <Modal visible={true} transparent animationType="fade">
+          <View style={styles.pickerModalOverlay}>
+            <View style={[styles.pickerModalContent, { backgroundColor: theme.surface }]}>
+              <Text style={[styles.pickerModalTitle, { color: theme.text }]}>Select Time</Text>
+              <DateTimePicker
+                value={selectedTime}
+                mode="time"
+                display="spinner"
+                onChange={handleQuickTimeChange}
+                style={{ height: 150 }}
+              />
+              <TouchableOpacity
+                style={[styles.pickerModalButton, { backgroundColor: theme.primary }]}
+                onPress={() => { setShowQuickTimePicker(false); setQuickEditTask(null); }}
+              >
+                <Text style={styles.pickerModalButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       )}
 
       {/* Add Task Modal */}
@@ -654,8 +673,11 @@ export default function TasksScreen() {
             {renderTaskForm()}
             <View style={styles.modalActions}>
               <TouchableOpacity
-                style={[styles.deleteButton, { backgroundColor: '#EF4444' + '20' }]}
-                onPress={() => { setShowEditModal(false); if (selectedTask) handleDeleteTask(selectedTask); }}
+                style={[styles.deleteButtonModal, { backgroundColor: '#EF4444' + '20' }]}
+                onPress={() => { 
+                  setShowEditModal(false); 
+                  if (selectedTask) handleDeleteTask(selectedTask); 
+                }}
               >
                 <Ionicons name="trash-outline" size={20} color="#EF4444" />
               </TouchableOpacity>
@@ -703,11 +725,11 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   quickAddText: { fontSize: 16, fontWeight: '600', marginLeft: 8 },
-  swipeHint: {
+  instructionContainer: {
     paddingHorizontal: 20,
     marginBottom: 12,
   },
-  swipeHintText: { fontSize: 11, textAlign: 'center' },
+  instructionText: { fontSize: 12, textAlign: 'center' },
   filterScroll: { maxHeight: 50, marginBottom: 12 },
   filterContainer: { paddingHorizontal: 20, gap: 10 },
   filterTab: {
@@ -728,6 +750,37 @@ const styles = StyleSheet.create({
   },
   emptyText: { fontSize: 18, marginTop: 16, marginBottom: 8 },
   addLinkText: { fontSize: 16, fontWeight: '600' },
+  pickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  pickerModalContent: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+  },
+  pickerModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  pickerModalButton: {
+    width: '100%',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  pickerModalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
   modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '90%' },
   modalHeader: {
@@ -747,7 +800,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  pickerText: { fontSize: 16, marginLeft: 12 },
+  pickerText: { fontSize: 16, marginLeft: 12, flex: 1 },
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 10 },
   categoryButton: {
     flexDirection: 'row',
@@ -782,7 +835,7 @@ const styles = StyleSheet.create({
   },
   uploadButtonText: { fontSize: 15, fontWeight: '600', marginLeft: 8 },
   modalActions: { flexDirection: 'row', marginTop: 20, gap: 12 },
-  deleteButton: {
+  deleteButtonModal: {
     width: 50,
     height: 50,
     borderRadius: 12,
