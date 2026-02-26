@@ -490,7 +490,7 @@ export default function TasksScreen() {
       <Text style={[styles.label, { color: theme.text }]}>Date</Text>
       <TouchableOpacity
         style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
-        onPress={() => setShowDatePicker(true)}
+        onPress={openDatePicker}
       >
         <Ionicons name="calendar" size={20} color="#10B981" />
         <Text style={[styles.pickerText, { color: theme.text }]}>
@@ -502,7 +502,7 @@ export default function TasksScreen() {
       <Text style={[styles.label, { color: theme.text }]}>Time</Text>
       <TouchableOpacity
         style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
-        onPress={() => setShowTimePicker(true)}
+        onPress={openTimePicker}
       >
         <Ionicons name="time" size={20} color="#F97316" />
         <Text style={[styles.pickerText, { color: theme.text }]}>
