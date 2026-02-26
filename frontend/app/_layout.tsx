@@ -4,6 +4,8 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
+import { AlarmModal } from '../components/AlarmModal';
+import { setupNotificationListeners, playAlarmSound, stopAlarmSound } from '../utils/notifications';
 
 const HomeIcon = ({ color, size }: { color: string; size: number }) => (
   <Ionicons name="home" size={size} color={color} />
