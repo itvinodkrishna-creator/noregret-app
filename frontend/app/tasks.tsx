@@ -401,6 +401,30 @@ export default function TasksScreen() {
 
   const minDate = startOfToday();
 
+  // Handle date selection in form
+  const handleFormDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (date) {
+      setSelectedDate(date);
+      // Auto close on iOS after selection
+      setShowDatePicker(false);
+    }
+  };
+
+  // Handle time selection in form
+  const handleFormTimeChange = (event: any, time?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+    }
+    if (time) {
+      setSelectedTime(time);
+      // Auto close on iOS after selection
+      setShowTimePicker(false);
+    }
+  };
+
   const renderTaskForm = () => (
     <ScrollView showsVerticalScrollIndicator={false}>
       <Text style={[styles.label, { color: theme.text }]}>Title *</Text>
@@ -428,49 +452,24 @@ export default function TasksScreen() {
         style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
         onPress={() => setShowDatePicker(true)}
       >
-        <Ionicons name="calendar" size={20} color={theme.primary} />
+        <Ionicons name="calendar" size={20} color="#10B981" />
         <Text style={[styles.pickerText, { color: theme.text }]}>
           {format(selectedDate, 'EEEE, MMM dd, yyyy')}
         </Text>
         <Ionicons name="chevron-down" size={20} color={theme.textSecondary} />
       </TouchableOpacity>
 
-      {showDatePicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          minimumDate={minDate}
-          onChange={(event, date) => {
-            if (Platform.OS !== 'ios') setShowDatePicker(false);
-            if (date) setSelectedDate(date);
-          }}
-        />
-      )}
-
       <Text style={[styles.label, { color: theme.text }]}>Time</Text>
       <TouchableOpacity
         style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
         onPress={() => setShowTimePicker(true)}
       >
-        <Ionicons name="time" size={20} color={theme.primary} />
+        <Ionicons name="time" size={20} color="#F97316" />
         <Text style={[styles.pickerText, { color: theme.text }]}>
           {format(selectedTime, 'h:mm a')}
         </Text>
         <Ionicons name="chevron-down" size={20} color={theme.textSecondary} />
       </TouchableOpacity>
-
-      {showTimePicker && (
-        <DateTimePicker
-          value={selectedTime}
-          mode="time"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(event, time) => {
-            if (Platform.OS !== 'ios') setShowTimePicker(false);
-            if (time) setSelectedTime(time);
-          }}
-        />
-      )}
 
       <Text style={[styles.label, { color: theme.text }]}>Category</Text>
       <View style={styles.categoryGrid}>
