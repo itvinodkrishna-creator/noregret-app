@@ -811,23 +811,24 @@ export default function TasksScreen() {
       {/* Date Picker Modal - Bottom Sheet Style */}
       {showDatePicker && (
         <Modal visible={true} transparent animationType="slide" onRequestClose={() => setShowDatePicker(false)}>
-          <TouchableOpacity 
-            style={styles.dateTimePickerOverlay} 
-            activeOpacity={1} 
-            onPress={() => setShowDatePicker(false)}
-          >
+          <View style={styles.dateTimePickerOverlay}>
+            <TouchableOpacity 
+              style={styles.dateTimePickerBackdrop} 
+              activeOpacity={1} 
+              onPress={() => setShowDatePicker(false)}
+            />
             <View style={[styles.dateTimePickerContainer, { backgroundColor: theme.surface }]}>
               <View style={styles.dateTimePickerHeader}>
                 <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                  <Text style={[styles.dateTimePickerCancel, { color: theme.textSecondary }]}>Cancel</Text>
+                  <Text style={[styles.dateTimePickerCancel, { color: '#EF4444' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <Text style={[styles.dateTimePickerTitle, { color: theme.text }]}>Select Date</Text>
-                <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                <TouchableOpacity onPress={confirmDateSelection}>
                   <Text style={[styles.dateTimePickerDone, { color: theme.primary }]}>Done</Text>
                 </TouchableOpacity>
               </View>
               <DateTimePicker
-                value={selectedDate}
+                value={tempDate}
                 mode="date"
                 display="spinner"
                 minimumDate={minDate}
@@ -836,30 +837,31 @@ export default function TasksScreen() {
                 textColor={theme.text}
               />
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
       )}
 
       {/* Time Picker Modal - Bottom Sheet Style */}
       {showTimePicker && (
         <Modal visible={true} transparent animationType="slide" onRequestClose={() => setShowTimePicker(false)}>
-          <TouchableOpacity 
-            style={styles.dateTimePickerOverlay} 
-            activeOpacity={1} 
-            onPress={() => setShowTimePicker(false)}
-          >
+          <View style={styles.dateTimePickerOverlay}>
+            <TouchableOpacity 
+              style={styles.dateTimePickerBackdrop} 
+              activeOpacity={1} 
+              onPress={() => setShowTimePicker(false)}
+            />
             <View style={[styles.dateTimePickerContainer, { backgroundColor: theme.surface }]}>
               <View style={styles.dateTimePickerHeader}>
                 <TouchableOpacity onPress={() => setShowTimePicker(false)}>
-                  <Text style={[styles.dateTimePickerCancel, { color: theme.textSecondary }]}>Cancel</Text>
+                  <Text style={[styles.dateTimePickerCancel, { color: '#EF4444' }]}>Cancel</Text>
                 </TouchableOpacity>
                 <Text style={[styles.dateTimePickerTitle, { color: theme.text }]}>Select Time</Text>
-                <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                <TouchableOpacity onPress={confirmTimeSelection}>
                   <Text style={[styles.dateTimePickerDone, { color: theme.primary }]}>Done</Text>
                 </TouchableOpacity>
               </View>
               <DateTimePicker
-                value={selectedTime}
+                value={tempTime}
                 mode="time"
                 display="spinner"
                 onChange={handleFormTimeChange}
@@ -867,7 +869,7 @@ export default function TasksScreen() {
                 textColor={theme.text}
               />
             </View>
-          </TouchableOpacity>
+          </View>
         </Modal>
       )}
     </View>
