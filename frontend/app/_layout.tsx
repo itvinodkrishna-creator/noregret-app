@@ -50,6 +50,24 @@ function TabLayout() {
     return unsubscribe;
   }, [tasks]);
 
+  const handleDismissAlarm = async () => {
+    await stopAlarmSound();
+    setShowAlarm(false);
+    setAlarmTask(null);
+    if (alarmTask) {
+      await completeTask(alarmTask.id);
+    }
+  };
+
+  const handleSnoozeAlarm = async (minutes: number) => {
+    await stopAlarmSound();
+    setShowAlarm(false);
+    if (alarmTask) {
+      await storeSnoozeTask(alarmTask.id, minutes);
+    }
+    setAlarmTask(null);
+  };
+
   if (initializing) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
@@ -59,7 +77,8 @@ function TabLayout() {
   }
 
   return (
-    <Tabs
+    <>
+      <Tabs
       screenOptions={{
         tabBarActiveTintColor: theme.primary,
         tabBarInactiveTintColor: theme.textSecondary,
