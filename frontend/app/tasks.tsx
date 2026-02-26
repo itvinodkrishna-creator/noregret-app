@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Platform, Switch, Alert, Animated } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Platform, Switch, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
-import { TaskCard } from '../components/TaskCard';
+import { SwipeableTaskCard } from '../components/SwipeableTaskCard';
+import { Toast } from '../components/Toast';
 import { Task, CATEGORY_CONFIG, CategoryType } from '../types';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, startOfToday, parseISO } from 'date-fns';
 import * as DocumentPicker from 'expo-document-picker';
 import { registerForPushNotificationsAsync } from '../utils/notifications';
 import { scheduleAlarm, cancelAlarmsForTask } from '../utils/alarmScheduler';
-import { RINGTONES, getRingtoneLabel, playClickSound } from '../utils/sounds';
+import { RINGTONES, playClickSound } from '../utils/sounds';
 
 const categories: CategoryType[] = ['Work', 'Health', 'Food', 'Personal'];
 
@@ -21,8 +22,17 @@ export default function TasksScreen() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [filter, setFilter] = useState<'all' | CategoryType>('all');
-  const [permissionGranted, setPermissionGranted] = useState(false);
   const [customRingtones, setCustomRingtones] = useState<{id: string; label: string; url: string}[]>([]);
+  
+  // Toast state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
+  
+  // Quick edit states
+  const [quickEditTask, setQuickEditTask] = useState<Task | null>(null);
+  const [showQuickDatePicker, setShowQuickDatePicker] = useState(false);
+  const [showQuickTimePicker, setShowQuickTimePicker] = useState(false);
   
   // Form state
   const [title, setTitle] = useState('');
@@ -46,8 +56,15 @@ export default function TasksScreen() {
 
   useEffect(() => {
     loadData();
-    requestNotificationPermissions();
+    registerForPushNotificationsAsync();
   }, []);
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+    setTimeout(() => setToastVisible(false), 2500);
+  };
 
   const allRingtones = [...RINGTONES, ...customRingtones];
 
@@ -71,21 +88,10 @@ export default function TasksScreen() {
         }
         
         setSelectedRingtone(customSound.id);
-        Alert.alert('Success', `Selected: ${audio.name}`);
+        showToast(`Selected: ${audio.name}`, 'success');
       }
     } catch (error) {
-      console.error('Error picking audio:', error);
-      Alert.alert('Error', 'Could not pick audio file');
-    }
-  };
-
-  const requestNotificationPermissions = async () => {
-    try {
-      await registerForPushNotificationsAsync();
-      setPermissionGranted(true);
-    } catch (error) {
-      console.error('Error requesting notification permissions:', error);
-      setPermissionGranted(true);
+      showToast('Could not pick audio file', 'error');
     }
   };
 
@@ -110,7 +116,7 @@ export default function TasksScreen() {
     playClickSound(preferences.soundEnabled);
     
     if (!title.trim()) {
-      Alert.alert('Error', 'Please enter a task title');
+      showToast('Please enter a task title', 'error');
       return;
     }
 
@@ -122,13 +128,9 @@ export default function TasksScreen() {
 
     const now = new Date();
     const msUntilAlarm = taskDateTime.getTime() - now.getTime();
-    const minutesUntil = Math.floor(msUntilAlarm / (1000 * 60));
     
     if (msUntilAlarm < 60000) {
-      Alert.alert(
-        '❌ Invalid Time', 
-        `Please select a time at least 1 minute in the future.`
-      );
+      showToast('Please select a time at least 1 minute in the future', 'error');
       return;
     }
 
@@ -137,13 +139,7 @@ export default function TasksScreen() {
 
     if (reminderEnabled) {
       try {
-        alarmId = scheduleAlarm(
-          taskId,
-          title.trim(),
-          taskDateTime,
-          selectedRingtone,
-          description.trim()
-        );
+        alarmId = scheduleAlarm(taskId, title.trim(), taskDateTime, selectedRingtone, description.trim());
       } catch (error) {
         console.error('Error scheduling alarm:', error);
       }
@@ -161,21 +157,14 @@ export default function TasksScreen() {
 
     resetForm();
     setShowAddModal(false);
-    
-    const timeStr = format(taskDateTime, 'MMM dd, h:mm a');
-    Alert.alert(
-      '✅ Task Created!', 
-      reminderEnabled 
-        ? `⏰ Alarm set for ${timeStr}` 
-        : 'Task created without reminder'
-    );
+    showToast('Task Created Successfully!', 'success');
   };
 
   const handleEditTask = async () => {
     playClickSound(preferences.soundEnabled);
     
     if (!selectedTask || !title.trim()) {
-      Alert.alert('Error', 'Please enter a task title');
+      showToast('Please enter a task title', 'error');
       return;
     }
 
@@ -185,9 +174,9 @@ export default function TasksScreen() {
     taskDateTime.setSeconds(0);
     taskDateTime.setMilliseconds(0);
 
-    // Cancel old alarm if exists
-    if (selectedTask.notificationId) {
-      cancelAlarmsForTask(selectedTask._id || '');
+    // Cancel old alarm
+    if (selectedTask._id) {
+      cancelAlarmsForTask(selectedTask._id);
     }
 
     let alarmId: string | undefined;
@@ -198,13 +187,7 @@ export default function TasksScreen() {
       
       if (msUntilAlarm >= 60000) {
         try {
-          alarmId = scheduleAlarm(
-            selectedTask._id || '',
-            title.trim(),
-            taskDateTime,
-            selectedRingtone,
-            description.trim()
-          );
+          alarmId = scheduleAlarm(selectedTask._id || '', title.trim(), taskDateTime, selectedRingtone, description.trim());
         } catch (error) {
           console.error('Error scheduling alarm:', error);
         }
@@ -224,7 +207,7 @@ export default function TasksScreen() {
     setShowEditModal(false);
     setSelectedTask(null);
     resetForm();
-    Alert.alert('✅ Task Updated!');
+    showToast('Task Updated Successfully!', 'success');
   };
 
   const handleDeleteTask = (task: Task) => {
@@ -242,6 +225,7 @@ export default function TasksScreen() {
             if (task._id) {
               cancelAlarmsForTask(task._id);
               await deleteTask(task._id);
+              showToast('Task Deleted', 'info');
             }
           }
         },
@@ -266,43 +250,119 @@ export default function TasksScreen() {
     playClickSound(preferences.soundEnabled);
     completeTask(taskId);
     cancelAlarmsForTask(taskId);
+    showToast('Task Completed!', 'success');
+  };
+
+  // Quick date/time edit handlers
+  const handleQuickDateEdit = (task: Task) => {
+    playClickSound(preferences.soundEnabled);
+    setQuickEditTask(task);
+    setSelectedDate(parseISO(task.time));
+    setShowQuickDatePicker(true);
+  };
+
+  const handleQuickTimeEdit = (task: Task) => {
+    playClickSound(preferences.soundEnabled);
+    setQuickEditTask(task);
+    setSelectedTime(parseISO(task.time));
+    setShowQuickTimePicker(true);
+  };
+
+  const handleQuickDateChange = async (event: any, date?: Date) => {
+    setShowQuickDatePicker(Platform.OS === 'ios');
+    
+    if (date && quickEditTask && quickEditTask._id) {
+      const newDateTime = new Date(date);
+      const oldTime = parseISO(quickEditTask.time);
+      newDateTime.setHours(oldTime.getHours());
+      newDateTime.setMinutes(oldTime.getMinutes());
+      
+      // Cancel old alarm and reschedule
+      cancelAlarmsForTask(quickEditTask._id);
+      
+      let alarmId: string | undefined;
+      if (quickEditTask.reminderEnabled) {
+        const now = new Date();
+        const msUntilAlarm = newDateTime.getTime() - now.getTime();
+        if (msUntilAlarm >= 60000) {
+          try {
+            alarmId = scheduleAlarm(quickEditTask._id, quickEditTask.title, newDateTime, quickEditTask.ringtone || 'default');
+          } catch (error) {}
+        }
+      }
+      
+      await updateTask(quickEditTask._id, { 
+        time: newDateTime.toISOString(),
+        notificationId: alarmId,
+      });
+      showToast('Date Updated!', 'success');
+    }
+    setQuickEditTask(null);
+  };
+
+  const handleQuickTimeChange = async (event: any, time?: Date) => {
+    setShowQuickTimePicker(Platform.OS === 'ios');
+    
+    if (time && quickEditTask && quickEditTask._id) {
+      const newDateTime = parseISO(quickEditTask.time);
+      newDateTime.setHours(time.getHours());
+      newDateTime.setMinutes(time.getMinutes());
+      
+      // Cancel old alarm and reschedule
+      cancelAlarmsForTask(quickEditTask._id);
+      
+      let alarmId: string | undefined;
+      if (quickEditTask.reminderEnabled) {
+        const now = new Date();
+        const msUntilAlarm = newDateTime.getTime() - now.getTime();
+        if (msUntilAlarm >= 60000) {
+          try {
+            alarmId = scheduleAlarm(quickEditTask._id, quickEditTask.title, newDateTime, quickEditTask.ringtone || 'default');
+          } catch (error) {}
+        }
+      }
+      
+      await updateTask(quickEditTask._id, { 
+        time: newDateTime.toISOString(),
+        notificationId: alarmId,
+      });
+      showToast('Time Updated!', 'success');
+    }
+    setQuickEditTask(null);
   };
 
   const minDate = startOfToday();
 
-  const renderTaskForm = (isEdit: boolean) => (
+  const renderTaskForm = () => (
     <ScrollView showsVerticalScrollIndicator={false}>
-      {/* Title Input */}
       <Text style={[styles.label, { color: theme.text }]}>Title *</Text>
       <TextInput
         style={[styles.input, { backgroundColor: theme.card, color: theme.text, borderColor: theme.border }]}
         value={title}
         onChangeText={setTitle}
-        placeholder="Enter task title"
+        placeholder="What do you need to do?"
         placeholderTextColor={theme.textSecondary}
       />
 
-      {/* Description Input */}
       <Text style={[styles.label, { color: theme.text }]}>Description</Text>
       <TextInput
         style={[styles.input, styles.textArea, { backgroundColor: theme.card, color: theme.text, borderColor: theme.border }]}
         value={description}
         onChangeText={setDescription}
-        placeholder="Enter task description"
+        placeholder="Add more details..."
         placeholderTextColor={theme.textSecondary}
         multiline
         numberOfLines={3}
       />
 
-      {/* Date Picker */}
       <Text style={[styles.label, { color: theme.text }]}>Date</Text>
       <TouchableOpacity
         style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
         onPress={() => setShowDatePicker(true)}
       >
-        <Ionicons name="calendar-outline" size={20} color={theme.text} />
+        <Ionicons name="calendar-outline" size={20} color={theme.primary} />
         <Text style={[styles.pickerText, { color: theme.text }]}>
-          {format(selectedDate, 'MMM dd, yyyy')}
+          {format(selectedDate, 'EEEE, MMM dd, yyyy')}
         </Text>
       </TouchableOpacity>
 
@@ -319,13 +379,12 @@ export default function TasksScreen() {
         />
       )}
 
-      {/* Time Picker */}
       <Text style={[styles.label, { color: theme.text }]}>Time</Text>
       <TouchableOpacity
         style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
         onPress={() => setShowTimePicker(true)}
       >
-        <Ionicons name="time-outline" size={20} color={theme.text} />
+        <Ionicons name="time-outline" size={20} color={theme.primary} />
         <Text style={[styles.pickerText, { color: theme.text }]}>
           {format(selectedTime, 'h:mm a')}
         </Text>
@@ -343,7 +402,6 @@ export default function TasksScreen() {
         />
       )}
 
-      {/* Category Picker */}
       <Text style={[styles.label, { color: theme.text }]}>Category</Text>
       <View style={styles.categoryGrid}>
         {categories.map(category => {
@@ -364,17 +422,8 @@ export default function TasksScreen() {
                 setSelectedCategory(category);
               }}
             >
-              <Ionicons 
-                name={config.icon as any} 
-                size={16} 
-                color={isSelected ? '#FFFFFF' : config.color} 
-              />
-              <Text
-                style={[
-                  styles.categoryText,
-                  { color: isSelected ? '#FFFFFF' : config.color },
-                ]}
-              >
+              <Ionicons name={config.icon as any} size={16} color={isSelected ? '#FFFFFF' : config.color} />
+              <Text style={[styles.categoryText, { color: isSelected ? '#FFFFFF' : config.color }]}>
                 {category}
               </Text>
             </TouchableOpacity>
@@ -382,13 +431,10 @@ export default function TasksScreen() {
         })}
       </View>
 
-      {/* Reminder Toggle */}
       <View style={styles.reminderRow}>
         <View style={styles.reminderLabel}>
           <Ionicons name="notifications" size={20} color={theme.primary} />
-          <Text style={[styles.reminderText, { color: theme.text }]}>
-            Enable Alarm
-          </Text>
+          <Text style={[styles.reminderText, { color: theme.text }]}>Enable Alarm</Text>
         </View>
         <Switch
           value={reminderEnabled}
@@ -401,7 +447,6 @@ export default function TasksScreen() {
         />
       </View>
 
-      {/* Ringtone Picker */}
       {reminderEnabled && (
         <>
           <Text style={[styles.label, { color: theme.text }]}>Alarm Sound</Text>
@@ -409,7 +454,7 @@ export default function TasksScreen() {
             style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
             onPress={() => setShowRingtonePicker(!showRingtonePicker)}
           >
-            <Ionicons name="musical-notes" size={20} color={theme.text} />
+            <Ionicons name="musical-notes" size={20} color={theme.primary} />
             <Text style={[styles.pickerText, { color: theme.text, flex: 1 }]}>
               {allRingtones.find(r => r.id === selectedRingtone)?.label || 'Default Alarm'}
             </Text>
@@ -418,37 +463,34 @@ export default function TasksScreen() {
 
           {showRingtonePicker && (
             <View style={[styles.ringtoneList, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              {allRingtones.map((ringtone, index) => (
-                <TouchableOpacity
-                  key={ringtone.id}
-                  style={[
-                    styles.ringtoneItem,
-                    selectedRingtone === ringtone.id && { backgroundColor: theme.primary + '20' },
-                    index < allRingtones.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
-                  ]}
-                  onPress={() => {
-                    playClickSound(preferences.soundEnabled);
-                    setSelectedRingtone(ringtone.id);
-                    setShowRingtonePicker(false);
-                  }}
-                >
-                  <Text style={[styles.ringtoneText, { color: theme.text }]}>
-                    {ringtone.label}
-                  </Text>
-                  {selectedRingtone === ringtone.id && (
-                    <Ionicons name="checkmark" size={20} color={theme.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
-              
+              <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                {allRingtones.map((ringtone, index) => (
+                  <TouchableOpacity
+                    key={ringtone.id}
+                    style={[
+                      styles.ringtoneItem,
+                      selectedRingtone === ringtone.id && { backgroundColor: theme.primary + '20' },
+                      index < allRingtones.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
+                    ]}
+                    onPress={() => {
+                      playClickSound(preferences.soundEnabled);
+                      setSelectedRingtone(ringtone.id);
+                      setShowRingtonePicker(false);
+                    }}
+                  >
+                    <Text style={[styles.ringtoneText, { color: theme.text }]}>{ringtone.label}</Text>
+                    {selectedRingtone === ringtone.id && (
+                      <Ionicons name="checkmark" size={20} color={theme.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
               <TouchableOpacity
                 style={[styles.uploadButton, { borderTopWidth: 2, borderTopColor: theme.border }]}
                 onPress={pickAudioFile}
               >
                 <Ionicons name="cloud-upload" size={20} color={theme.primary} />
-                <Text style={[styles.uploadButtonText, { color: theme.primary }]}>
-                  Upload Custom Audio
-                </Text>
+                <Text style={[styles.uploadButtonText, { color: theme.primary }]}>Upload Custom Audio</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -459,6 +501,9 @@ export default function TasksScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
+      {/* Toast */}
+      <Toast visible={toastVisible} message={toastMessage} type={toastType} />
+      
       {/* Header */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.text }]}>Tasks</Text>
@@ -474,7 +519,7 @@ export default function TasksScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Quick Add Button */}
+      {/* Quick Add */}
       <TouchableOpacity 
         style={[styles.quickAddButton, { backgroundColor: theme.primary + '15', borderColor: theme.primary }]}
         onPress={() => {
@@ -487,29 +532,20 @@ export default function TasksScreen() {
         <Text style={[styles.quickAddText, { color: theme.primary }]}>Add New Task</Text>
       </TouchableOpacity>
 
+      {/* Swipe Hint */}
+      <View style={styles.swipeHint}>
+        <Text style={[styles.swipeHintText, { color: theme.textSecondary }]}>
+          ← Swipe left to delete • Swipe right to edit →
+        </Text>
+      </View>
+
       {/* Category Filter */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false} 
-        style={styles.filterScroll}
-        contentContainerStyle={styles.filterContainer}
-      >
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContainer}>
         <TouchableOpacity
-          style={[
-            styles.filterTab,
-            filter === 'all' && { backgroundColor: theme.primary },
-          ]}
-          onPress={() => {
-            playClickSound(preferences.soundEnabled);
-            setFilter('all');
-          }}
+          style={[styles.filterTab, filter === 'all' && { backgroundColor: theme.primary }]}
+          onPress={() => { playClickSound(preferences.soundEnabled); setFilter('all'); }}
         >
-          <Text style={[
-            styles.filterText,
-            { color: filter === 'all' ? '#FFFFFF' : theme.textSecondary },
-          ]}>
-            All
-          </Text>
+          <Text style={[styles.filterText, { color: filter === 'all' ? '#FFFFFF' : theme.textSecondary }]}>All</Text>
         </TouchableOpacity>
         
         {categories.map(category => {
@@ -523,20 +559,10 @@ export default function TasksScreen() {
                 isActive && { backgroundColor: config.color },
                 !isActive && { borderWidth: 1, borderColor: config.color },
               ]}
-              onPress={() => {
-                playClickSound(preferences.soundEnabled);
-                setFilter(category);
-              }}
+              onPress={() => { playClickSound(preferences.soundEnabled); setFilter(category); }}
             >
-              <Ionicons 
-                name={config.icon as any} 
-                size={14} 
-                color={isActive ? '#FFFFFF' : config.color} 
-              />
-              <Text style={[
-                styles.filterText,
-                { color: isActive ? '#FFFFFF' : config.color, marginLeft: 6 },
-              ]}>
+              <Ionicons name={config.icon as any} size={14} color={isActive ? '#FFFFFF' : config.color} />
+              <Text style={[styles.filterText, { color: isActive ? '#FFFFFF' : config.color, marginLeft: 6 }]}>
                 {category}
               </Text>
             </TouchableOpacity>
@@ -550,34 +576,50 @@ export default function TasksScreen() {
           <View style={[styles.emptyContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <Ionicons name="clipboard-outline" size={64} color={theme.textSecondary} />
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>No tasks found</Text>
-            <TouchableOpacity onPress={() => {
-              playClickSound(preferences.soundEnabled);
-              setShowAddModal(true);
-            }}>
+            <TouchableOpacity onPress={() => { playClickSound(preferences.soundEnabled); setShowAddModal(true); }}>
               <Text style={[styles.addLinkText, { color: theme.primary }]}>Add a new task</Text>
             </TouchableOpacity>
           </View>
         ) : (
           filteredTasks.map(task => (
-            <TaskCard
+            <SwipeableTaskCard
               key={task._id}
               task={task}
               onPress={() => openEditModal(task)}
               onComplete={() => task._id && handleCompleteTask(task._id)}
-              onLongPress={() => handleDeleteTask(task)}
+              onEdit={() => openEditModal(task)}
+              onDelete={() => handleDeleteTask(task)}
+              onEditDate={() => handleQuickDateEdit(task)}
+              onEditTime={() => handleQuickTimeEdit(task)}
             />
           ))
         )}
         <View style={{ height: 100 }} />
       </ScrollView>
 
+      {/* Quick Date Picker */}
+      {showQuickDatePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          minimumDate={minDate}
+          onChange={handleQuickDateChange}
+        />
+      )}
+
+      {/* Quick Time Picker */}
+      {showQuickTimePicker && (
+        <DateTimePicker
+          value={selectedTime}
+          mode="time"
+          display="default"
+          onChange={handleQuickTimeChange}
+        />
+      )}
+
       {/* Add Task Modal */}
-      <Modal
-        visible={showAddModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowAddModal(false)}
-      >
+      <Modal visible={showAddModal} animationType="slide" transparent={true} onRequestClose={() => setShowAddModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             <View style={styles.modalHeader}>
@@ -586,18 +628,12 @@ export default function TasksScreen() {
                 <Ionicons name="close" size={28} color={theme.text} />
               </TouchableOpacity>
             </View>
-            {renderTaskForm(false)}
+            {renderTaskForm()}
             <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.cancelButton, { backgroundColor: theme.card }]}
-                onPress={() => setShowAddModal(false)}
-              >
+              <TouchableOpacity style={[styles.cancelButton, { backgroundColor: theme.card }]} onPress={() => setShowAddModal(false)}>
                 <Text style={[styles.cancelButtonText, { color: theme.text }]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: theme.primary }]}
-                onPress={handleAddTask}
-              >
+              <TouchableOpacity style={[styles.saveButton, { backgroundColor: theme.primary }]} onPress={handleAddTask}>
                 <Text style={styles.saveButtonText}>Add Task</Text>
               </TouchableOpacity>
             </View>
@@ -606,12 +642,7 @@ export default function TasksScreen() {
       </Modal>
 
       {/* Edit Task Modal */}
-      <Modal
-        visible={showEditModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowEditModal(false)}
-      >
+      <Modal visible={showEditModal} animationType="slide" transparent={true} onRequestClose={() => setShowEditModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             <View style={styles.modalHeader}>
@@ -620,27 +651,18 @@ export default function TasksScreen() {
                 <Ionicons name="close" size={28} color={theme.text} />
               </TouchableOpacity>
             </View>
-            {renderTaskForm(true)}
+            {renderTaskForm()}
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={[styles.deleteButton, { backgroundColor: '#EF4444' + '20' }]}
-                onPress={() => {
-                  setShowEditModal(false);
-                  if (selectedTask) handleDeleteTask(selectedTask);
-                }}
+                onPress={() => { setShowEditModal(false); if (selectedTask) handleDeleteTask(selectedTask); }}
               >
                 <Ionicons name="trash-outline" size={20} color="#EF4444" />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.cancelButton, { backgroundColor: theme.card, flex: 1 }]}
-                onPress={() => setShowEditModal(false)}
-              >
+              <TouchableOpacity style={[styles.cancelButton, { backgroundColor: theme.card, flex: 1 }]} onPress={() => setShowEditModal(false)}>
                 <Text style={[styles.cancelButtonText, { color: theme.text }]}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveButton, { backgroundColor: theme.primary, flex: 1 }]}
-                onPress={handleEditTask}
-              >
+              <TouchableOpacity style={[styles.saveButton, { backgroundColor: theme.primary, flex: 1 }]} onPress={handleEditTask}>
                 <Text style={styles.saveButtonText}>Save</Text>
               </TouchableOpacity>
             </View>
@@ -652,9 +674,7 @@ export default function TasksScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -663,10 +683,7 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 16,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
+  title: { fontSize: 32, fontWeight: 'bold' },
   addButton: {
     width: 48,
     height: 48,
@@ -679,25 +696,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 8,
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 2,
     borderStyle: 'dashed',
   },
-  quickAddText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  filterScroll: {
-    maxHeight: 50,
-    marginBottom: 16,
-  },
-  filterContainer: {
+  quickAddText: { fontSize: 16, fontWeight: '600', marginLeft: 8 },
+  swipeHint: {
     paddingHorizontal: 20,
-    gap: 10,
+    marginBottom: 12,
   },
+  swipeHintText: { fontSize: 11, textAlign: 'center' },
+  filterScroll: { maxHeight: 50, marginBottom: 12 },
+  filterContainer: { paddingHorizontal: 20, gap: 10 },
   filterTab: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -705,14 +717,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
   },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
+  filterText: { fontSize: 14, fontWeight: '600' },
+  content: { flex: 1, paddingHorizontal: 20 },
   emptyContainer: {
     padding: 48,
     borderRadius: 12,
@@ -720,131 +726,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 32,
   },
-  emptyText: {
-    fontSize: 18,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  addLinkText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '90%',
-  },
+  emptyText: { fontSize: 18, marginTop: 16, marginBottom: 8 },
+  addLinkText: { fontSize: 16, fontWeight: '600' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
+  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '90%' },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
+  modalTitle: { fontSize: 24, fontWeight: 'bold' },
+  label: { fontSize: 16, fontWeight: '600', marginBottom: 8, marginTop: 14 },
+  input: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16 },
+  textArea: { height: 80, textAlignVertical: 'top' },
   pickerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 14,
     borderRadius: 12,
     borderWidth: 1,
   },
-  pickerText: {
-    fontSize: 16,
-    marginLeft: 12,
-  },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8,
-    gap: 10,
-  },
+  pickerText: { fontSize: 16, marginLeft: 12 },
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 10 },
   categoryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 2,
   },
-  categoryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 6,
-  },
+  categoryText: { fontSize: 14, fontWeight: '600', marginLeft: 6 },
   reminderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 14,
   },
-  reminderLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  reminderText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  ringtoneList: {
-    borderWidth: 1,
-    borderRadius: 12,
-    marginTop: 8,
-    overflow: 'hidden',
-    maxHeight: 250,
-  },
+  reminderLabel: { flexDirection: 'row', alignItems: 'center' },
+  reminderText: { fontSize: 16, fontWeight: '600', marginLeft: 8 },
+  ringtoneList: { borderWidth: 1, borderRadius: 12, marginTop: 8, overflow: 'hidden' },
   ringtoneItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 14,
   },
-  ringtoneText: {
-    fontSize: 15,
-  },
+  ringtoneText: { fontSize: 15 },
   uploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 14,
-    backgroundColor: 'transparent',
   },
-  uploadButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    marginTop: 24,
-    gap: 12,
-  },
+  uploadButtonText: { fontSize: 15, fontWeight: '600', marginLeft: 8 },
+  modalActions: { flexDirection: 'row', marginTop: 20, gap: 12 },
   deleteButton: {
     width: 50,
     height: 50,
@@ -852,25 +789,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  saveButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  cancelButton: { flex: 1, padding: 16, borderRadius: 12, alignItems: 'center' },
+  cancelButtonText: { fontSize: 16, fontWeight: '600' },
+  saveButton: { flex: 1, padding: 16, borderRadius: 12, alignItems: 'center' },
+  saveButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 });
