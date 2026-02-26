@@ -1,20 +1,28 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Platform, Switch, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
 import { TaskCard } from '../components/TaskCard';
-import { Task } from '../types';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { format } from 'date-fns';
+import { format, isBefore, startOfToday } from 'date-fns';
+import * as Notifications from 'expo-notifications';
+import { registerForPushNotificationsAsync, scheduleTaskNotification, cancelNotification } from '../utils/notifications';
 
 const categories = ['Work', 'Health', 'Food', 'Personal'] as const;
+const ringtones = [
+  { label: 'Default', value: 'default' },
+  { label: 'Bell', value: 'bell' },
+  { label: 'Chime', value: 'chime' },
+  { label: 'Alert', value: 'alert' },
+];
 
 export default function TasksScreen() {
   const { theme } = useTheme();
   const { tasks, addTask, completeTask, loadData } = useAppStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
+  const [permissionGranted, setPermissionGranted] = useState(false);
   
   // Form state
   const [title, setTitle] = useState('');
@@ -24,10 +32,91 @@ export default function TasksScreen() {
   const [selectedCategory, setSelectedCategory] = useState<typeof categories[number]>('Personal');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [reminderEnabled, setReminderEnabled] = useState(true);
+  const [selectedRingtone, setSelectedRingtone] = useState('default');
+  const [showRingtonePicker, setShowRingtonePicker] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     loadData();
+    requestNotificationPermissions();
+    setupNotificationHandlers();
   }, []);
+
+  const requestNotificationPermissions = async () => {
+    try {
+      await registerForPushNotificationsAsync();
+      setPermissionGranted(true);
+    } catch (error) {
+      console.error('Error requesting notification permissions:', error);
+    }
+  };
+
+  const setupNotificationHandlers = () => {
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data;
+      if (data.action === 'reminder' && data.taskId) {
+        handleNotificationResponse(data.taskId as string);
+      }
+    });
+
+    return () => {
+      responseSubscription.remove();
+    };
+  };
+
+  const handleNotificationResponse = (taskId: string) => {
+    const task = tasks.find(t => t._id === taskId);
+    if (task) {
+      Alert.alert(
+        '⏰ Task Reminder',
+        task.title,
+        [
+          {
+            text: '✅ Mark Done',
+            onPress: () => completeTask(taskId),
+          },
+          {
+            text: '⏰ Snooze 5 min',
+            onPress: () => snoozeTask(taskId, 5),
+          },
+          {
+            text: '⏰ Snooze 10 min',
+            onPress: () => snoozeTask(taskId, 10),
+          },
+          {
+            text: 'Dismiss',
+            style: 'cancel',
+          },
+        ]
+      );
+    }
+  };
+
+  const snoozeTask = async (taskId: string, minutes: number) => {
+    const task = tasks.find(t => t._id === taskId);
+    if (task) {
+      const snoozeTime = new Date(Date.now() + minutes * 60 * 1000);
+      
+      if (task.notificationId) {
+        await cancelNotification(task.notificationId);
+      }
+      
+      const notificationId = await scheduleTaskNotification(
+        taskId,
+        task.title,
+        snoozeTime,
+        task.ringtone || 'default'
+      );
+      
+      await useAppStore.getState().updateTask(taskId, {
+        status: 'snoozed',
+        snoozedUntil: snoozeTime.toISOString(),
+        notificationId,
+      });
+      
+      Alert.alert('Snoozed', `Reminder snoozed for ${minutes} minutes`);
+    }
+  };
 
   const filteredTasks = tasks
     .filter(task => filter === 'all' || task.status === filter)
