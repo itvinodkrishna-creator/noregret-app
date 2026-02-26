@@ -663,6 +663,19 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    backgroundColor: 'transparent',
+  },
+  uploadButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+
 
     alignItems: 'center',
   },
