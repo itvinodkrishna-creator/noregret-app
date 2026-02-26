@@ -18,6 +18,7 @@ export default function TasksScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [ringtones, setRingtones] = useState(getBuiltInSounds());
   
   // Form state
   const [title, setTitle] = useState('');
@@ -35,7 +36,37 @@ export default function TasksScreen() {
     loadData();
     requestNotificationPermissions();
     setupNotificationHandlers();
+    setupNotificationCategories(); // Set up action buttons
   }, []);
+
+  const pickAudioFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'audio/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const audio = result.assets[0];
+        const customSound = {
+          label: `Custom: ${audio.name}`,
+          value: audio.uri,
+          url: audio.uri,
+        };
+        
+        // Add to ringtones list if not already there
+        if (!ringtones.find(r => r.value === audio.uri)) {
+          setRingtones([...ringtones, customSound]);
+        }
+        
+        setSelectedRingtone(audio.uri);
+        Alert.alert('Success', `Selected: ${audio.name}`);
+      }
+    } catch (error) {
+      console.error('Error picking audio:', error);
+      Alert.alert('Error', 'Could not pick audio file');
+    }
+  };
 
   const requestNotificationPermissions = async () => {
     try {
