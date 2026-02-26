@@ -236,8 +236,23 @@ export function setupNotificationListeners(
   // Handle notification received (app in foreground)
   const receivedSubscription = Notifications.addNotificationReceivedListener(notification => {
     const data = notification.request.content.data;
+    
+    // Only trigger alarm if this is an actual alarm notification
     if (data.action === 'alarm') {
-      console.log('🔔 Alarm notification received (foreground)');
+      const scheduledTime = data.alarmTime ? new Date(data.alarmTime as string) : null;
+      const now = new Date();
+      
+      // Check if it's actually time for the alarm (not a test notification)
+      if (scheduledTime) {
+        const timeDiff = Math.abs(now.getTime() - scheduledTime.getTime());
+        // Only trigger if we're within 2 minutes of scheduled time (allowing for some delay)
+        if (timeDiff > 2 * 60 * 1000) {
+          console.log(`⏰ Alarm scheduled for ${scheduledTime.toISOString()}, too early to trigger`);
+          return;
+        }
+      }
+      
+      console.log('🔔 Alarm notification received - TIME TO ALARM!');
       const soundUrl = data.soundUrl as string || 'default';
       playAlarmSound(soundUrl);
       onAlarmTrigger(data.taskId as string, data.taskTitle as string, soundUrl);
