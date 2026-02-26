@@ -353,6 +353,74 @@ export default function TasksScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              {/* Reminder Toggle */}
+              <View style={styles.reminderRow}>
+                <View style={styles.reminderLabel}>
+                  <Ionicons name="notifications" size={20} color={theme.primary} />
+                  <Text style={[styles.label, { color: theme.text, marginTop: 0, marginLeft: 8 }]}>
+                    Enable Reminder
+                  </Text>
+                </View>
+                <Switch
+                  value={reminderEnabled}
+                  onValueChange={setReminderEnabled}
+                  trackColor={{ false: theme.border, true: theme.primary }}
+                  thumbColor={reminderEnabled ? '#FFFFFF' : theme.textSecondary}
+                />
+              </View>
+
+              {/* Ringtone Picker */}
+              {reminderEnabled && (
+                <>
+                  <Text style={[styles.label, { color: theme.text }]}>Choose Reminder Sound</Text>
+                  <TouchableOpacity
+                    style={[styles.pickerButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+                    onPress={() => setShowRingtonePicker(!showRingtonePicker)}
+                  >
+                    <Ionicons name="musical-notes" size={20} color={theme.text} />
+                    <Text style={[styles.pickerText, { color: theme.text }]}>
+                      {ringtones.find(r => r.value === selectedRingtone)?.label || 'Default'}
+                    </Text>
+                    <Ionicons name={showRingtonePicker ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
+                  </TouchableOpacity>
+
+                  {showRingtonePicker && (
+                    <View style={[styles.ringtoneList, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                      {ringtones.map((ringtone, index) => (
+                        <TouchableOpacity
+                          key={ringtone.value}
+                          style={[
+                            styles.ringtoneItem,
+                            selectedRingtone === ringtone.value && { backgroundColor: theme.primary + '20' },
+                            index < ringtones.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
+                          ]}
+                          onPress={() => {
+                            setSelectedRingtone(ringtone.value);
+                            setShowRingtonePicker(false);
+                          }}
+                        >
+                          <Text style={[styles.ringtoneText, { color: theme.text }]}>
+                            {ringtone.label}
+                          </Text>
+                          {selectedRingtone === ringtone.value && (
+                            <Ionicons name="checkmark" size={20} color={theme.primary} />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </>
+              )}
+
+              {!permissionGranted && reminderEnabled && (
+                <View style={[styles.warningBox, { backgroundColor: theme.warning + '20', borderColor: theme.warning }]}>
+                  <Ionicons name="warning" size={20} color={theme.warning} />
+                  <Text style={[styles.warningText, { color: theme.text }]}>
+                    Notification permissions not granted. Reminders won't work.
+                  </Text>
+                </View>
+              )}
             </ScrollView>
 
             {/* Action Buttons */}
