@@ -355,7 +355,13 @@ export const useAppStore = create<AppState>()((set, get) => ({
       
       getCompletedTasks: () => {
         return get().tasks.filter(task => 
-          task.status === 'done' || task.status === 'attempted'
+          task.status === 'done'
+        ).sort((a, b) => new Date(b.completedAt || b.time).getTime() - new Date(a.completedAt || a.time).getTime());
+      },
+      
+      getAttemptedTasks: () => {
+        return get().tasks.filter(task => 
+          task.status === 'attempted'
         ).sort((a, b) => new Date(b.completedAt || b.time).getTime() - new Date(a.completedAt || a.time).getTime());
       },
       
@@ -369,6 +375,15 @@ export const useAppStore = create<AppState>()((set, get) => ({
         return get().tasks.filter(task => 
           task.status === 'missed'
         ).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+      },
+      
+      markTaskAlarmTriggered: async (taskId) => {
+        await storage.updateTask(taskId, { alarmTriggered: true });
+        set(state => ({
+          tasks: state.tasks.map(task => 
+            task._id === taskId ? { ...task, alarmTriggered: true } : task
+          )
+        }));
       },
       
       getTasksByStatus: (status: string) => {
