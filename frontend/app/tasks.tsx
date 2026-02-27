@@ -378,13 +378,30 @@ export default function TasksScreen() {
   const renderTaskForm = () => (
     <ScrollView showsVerticalScrollIndicator={false}>
       <Text style={[styles.label, { color: theme.text }]}>Title *</Text>
-      <TextInput
-        style={[styles.input, { backgroundColor: theme.card, color: theme.text, borderColor: theme.border }]}
-        value={title}
-        onChangeText={setTitle}
-        placeholder="What do you need to do?"
-        placeholderTextColor={theme.textSecondary}
-      />
+      <View style={styles.titleInputRow}>
+        <TextInput
+          style={[styles.input, styles.titleInput, { backgroundColor: theme.card, color: theme.text, borderColor: theme.border }]}
+          value={title}
+          onChangeText={setTitle}
+          placeholder="What do you need to do?"
+          placeholderTextColor={theme.textSecondary}
+        />
+        <TouchableOpacity
+          style={[styles.voiceTitleButton, { backgroundColor: taskVoiceUri ? '#10B981' : theme.primary }]}
+          onPress={() => setIsRecordingTitle(true)}
+        >
+          <Ionicons name={taskVoiceUri ? "checkmark-circle" : "mic"} size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+      {taskVoiceUri && (
+        <View style={[styles.voiceAttachedBadge, { backgroundColor: '#10B98120', borderColor: '#10B981' }]}>
+          <Ionicons name="volume-high" size={16} color="#10B981" />
+          <Text style={styles.voiceAttachedText}>Voice message attached - will play at alarm time</Text>
+          <TouchableOpacity onPress={() => setTaskVoiceUri(null)}>
+            <Ionicons name="close-circle" size={20} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <Text style={[styles.label, { color: theme.text }]}>Description</Text>
       <TextInput
