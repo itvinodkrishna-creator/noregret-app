@@ -59,6 +59,8 @@ export default function TasksScreen() {
   const [showRingtonePicker, setShowRingtonePicker] = useState(false);
   const [voiceReadingEnabled, setVoiceReadingEnabled] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [taskVoiceUri, setTaskVoiceUri] = useState<string | null>(null);
+  const [isRecordingTitle, setIsRecordingTitle] = useState(false);
 
   useEffect(() => {
     loadData();
