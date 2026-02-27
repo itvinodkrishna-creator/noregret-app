@@ -337,6 +337,31 @@ export default function Dashboard() {
           </View>
         )}
 
+        {/* Stats at Bottom */}
+        <View style={styles.bottomStatsContainer}>
+          <Text style={[styles.bottomStatsTitle, { color: theme.textSecondary }]}>Your Progress</Text>
+          <View style={styles.statsRow}>
+            <StatsCard 
+              icon="flame" 
+              label="Streak" 
+              value={stats.currentStreak} 
+              color={theme.warning}
+            />
+            <StatsCard 
+              icon="checkmark-circle" 
+              label="Today" 
+              value={`${todayProgress}%`} 
+              color={theme.success}
+            />
+            <StatsCard 
+              icon="trophy" 
+              label="Total" 
+              value={stats.totalTasksCompleted} 
+              color={theme.primary}
+            />
+          </View>
+        </View>
+
         <View style={{ height: 24 }} />
       </ScrollView>
     </View>
