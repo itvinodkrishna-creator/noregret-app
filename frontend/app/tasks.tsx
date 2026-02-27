@@ -1223,7 +1223,7 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   statusBadgeText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 'bold',
   },
   // Voice title input styles
