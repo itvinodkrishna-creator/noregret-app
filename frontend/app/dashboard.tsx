@@ -526,4 +526,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  // Status Tabs Styles
+  statusTabsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  statusTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 5,
+  },
+  statusTabLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statusBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  statusBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  viewMoreBtn: {
+    padding: 12,
+    alignItems: 'center',
+  },
+  viewMoreText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
