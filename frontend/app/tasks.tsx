@@ -883,6 +883,22 @@ export default function TasksScreen() {
           setQuickEditTask(null);
         }}
       />
+
+      {/* Voice Recorder Modal */}
+      <VoiceRecorder
+        visible={showVoiceRecorder}
+        onClose={() => setShowVoiceRecorder(false)}
+        onSave={(recordingUri, recordingName) => {
+          const newRingtone = {
+            id: `voice_${Date.now()}`,
+            label: recordingName,
+            url: recordingUri,
+          };
+          setCustomRingtones(prev => [...prev, newRingtone]);
+          setSelectedRingtone(newRingtone.id);
+          showToast('Voice recording saved!', 'success');
+        }}
+      />
     </View>
   );
 }
