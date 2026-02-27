@@ -286,9 +286,14 @@ function TabLayout() {
         visible={alarmState?.visible || false}
         taskTitle={alarmState?.title || ''}
         taskDescription={alarmState?.description}
+        taskId={alarmState?.taskId || ''}
         voiceReadingEnabled={alarmState?.voiceReadingEnabled || false}
         onDismiss={handleDismissAlarm}
         onSnooze={handleSnoozeAlarm}
+        onMarkDone={handleMarkDone}
+        onMarkAttempted={handleMarkAttempted}
+        onReschedule={handleReschedule}
+        onKeepPending={handleKeepPending}
       />
     </>
   );
