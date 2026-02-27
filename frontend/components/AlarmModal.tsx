@@ -53,6 +53,60 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
   const voiceSoundRef = useRef<Audio.Sound | null>(null);
   const voiceLoopTimerRef = useRef<any>(null);
 
+  // Play recorded voice in a loop
+  const playRecordedVoice = async () => {
+    if (!voiceUri) return;
+    
+    try {
+      console.log('🎤 Playing recorded voice:', voiceUri);
+      
+      // Unload previous sound if exists
+      if (voiceSoundRef.current) {
+        await voiceSoundRef.current.unloadAsync();
+      }
+      
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: voiceUri },
+        { shouldPlay: true, volume: 1.0 }
+      );
+      
+      voiceSoundRef.current = sound;
+      setIsPlayingVoice(true);
+      
+      // Set up playback status listener for looping
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          // Replay the voice recording
+          sound.replayAsync();
+        }
+      });
+      
+      await sound.playAsync();
+      console.log('✅ Voice recording started playing');
+    } catch (error) {
+      console.error('❌ Error playing voice recording:', error);
+    }
+  };
+  
+  // Stop recorded voice
+  const stopRecordedVoice = async () => {
+    try {
+      if (voiceSoundRef.current) {
+        await voiceSoundRef.current.stopAsync();
+        await voiceSoundRef.current.unloadAsync();
+        voiceSoundRef.current = null;
+      }
+      if (voiceLoopTimerRef.current) {
+        clearInterval(voiceLoopTimerRef.current);
+        voiceLoopTimerRef.current = null;
+      }
+      setIsPlayingVoice(false);
+      console.log('🛑 Voice recording stopped');
+    } catch (error) {
+      console.error('❌ Error stopping voice recording:', error);
+    }
+  };
+
   useEffect(() => {
     if (visible) {
       setScreen('alarm');
@@ -99,8 +153,12 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
         ])
       ).start();
 
-      // Start voice reading if enabled
-      if (voiceReadingEnabled && isSpeechSupported()) {
+      // Play recorded voice OR TTS
+      if (voiceUri) {
+        // If we have a recorded voice, play that in loop
+        playRecordedVoice();
+      } else if (voiceReadingEnabled && isSpeechSupported()) {
+        // Otherwise use TTS
         const announcement = `Reminder: ${taskTitle}`;
         startRepeatingVoice(announcement, 8000);
       }
@@ -120,6 +178,7 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
       // Stop vibration when dismissed
       Vibration.cancel();
       stopVoiceReading();
+      stopRecordedVoice();
       pulseAnim.setValue(1);
       bellAnim.setValue(0);
       
@@ -137,6 +196,7 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
     return () => {
       Vibration.cancel();
       stopVoiceReading();
+      stopRecordedVoice();
       if (autoStopTimerRef.current) {
         clearTimeout(autoStopTimerRef.current);
       }
@@ -144,7 +204,7 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
         clearInterval(countdownRef.current);
       }
     };
-  }, [visible, taskTitle, voiceReadingEnabled]);
+  }, [visible, taskTitle, voiceReadingEnabled, voiceUri]);
 
   const handleAutoStop = () => {
     stopVoiceReading();
