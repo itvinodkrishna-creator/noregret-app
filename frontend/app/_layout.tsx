@@ -179,6 +179,25 @@ function TabLayout() {
     }
   }, []);
 
+  // Handle auto-stop (5 minutes without action)
+  const handleAutoStop = useCallback(async () => {
+    console.log('⏰ Alarm auto-stopped after 5 minutes - marking as MISSED');
+    
+    await stopAlarmSound();
+    
+    const currentAlarm = alarmStateRef.current;
+    if (currentAlarm) {
+      // Mark task as missed since no action was taken
+      await updateTask(currentAlarm.taskId, {
+        status: 'missed',
+      });
+      cancelAlarmsForTask(currentAlarm.taskId);
+    }
+    
+    alarmStateRef.current = null;
+    setAlarmState(null);
+  }, [updateTask]);
+
   // Handle snooze
   const handleSnoozeAlarm = useCallback(async (minutes: number) => {
     console.log(`⏰ SNOOZE pressed - ${minutes} minutes`);
