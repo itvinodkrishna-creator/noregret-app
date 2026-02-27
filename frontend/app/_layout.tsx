@@ -83,18 +83,14 @@ function TabLayout() {
         taskId: alarm.taskId,
         title: alarm.title,
         description: alarm.description,
-        soundUrl: voiceUri || alarm.soundUrl, // Use recorded voice if available, else ringtone
+        soundUrl: alarm.soundUrl,
         voiceReadingEnabled: voiceEnabled && !voiceUri, // Disable TTS if we have a recorded voice
+        voiceUri: voiceUri, // Pass the recorded voice URI to the modal
       };
       
-      // Play alarm sound with the selected ringtone OR the recorded voice
-      if (voiceUri) {
-        console.log('🎤 Playing recorded voice message:', voiceUri);
-        playAlarmSound(voiceUri);
-      } else {
-        console.log('🔊 Playing ringtone:', alarm.soundUrl);
-        playAlarmSound(alarm.soundUrl);
-      }
+      // Play alarm sound with the selected ringtone (NOT the voice - modal will handle voice)
+      console.log('🔊 Playing ringtone:', alarm.soundUrl);
+      playAlarmSound(alarm.soundUrl);
       
       // Mark task as alarm triggered (shows check mark icon)
       useAppStore.getState().markTaskAlarmTriggered(alarm.taskId);
