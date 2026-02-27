@@ -228,7 +228,8 @@ export const TimePickerModal: React.FC<TimePickerModalProps> = ({
   }, [visible, value]);
 
   const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-  const minutes = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+  // All minutes from 0 to 59 for exact minute selection
+  const minutes = Array.from({ length: 60 }, (_, i) => i);
 
   const handleSelect = () => {
     let hour24 = selectedHour;
