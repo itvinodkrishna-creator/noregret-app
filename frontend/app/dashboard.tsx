@@ -112,7 +112,11 @@ export default function Dashboard() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.logoContainer}>
-            <Ionicons name="shield-checkmark" size={32} color={theme.primary} />
+            <Image 
+              source={require('../assets/images/icon.png')} 
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
           <View>
             <View style={styles.brandContainer}>
