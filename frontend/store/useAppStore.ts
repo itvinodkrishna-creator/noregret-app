@@ -184,12 +184,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
       rescheduleTask: async (taskId, newTime) => {
         await storage.updateTask(taskId, { 
           time: newTime.toISOString(), 
-          status: 'pending',
+          status: 'rescheduled',
           snoozedUntil: undefined 
         });
         set(state => ({
           tasks: state.tasks.map(task => 
-            task._id === taskId ? { ...task, time: newTime.toISOString(), status: 'pending', snoozedUntil: undefined } : task
+            task._id === taskId ? { ...task, time: newTime.toISOString(), status: 'rescheduled', snoozedUntil: undefined } : task
           )
         }));
       },
