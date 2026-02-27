@@ -32,7 +32,12 @@ interface AppState {
   updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   completeTask: (taskId: string) => Promise<void>;
+  markTaskAsDone: (taskId: string) => Promise<void>;
+  markTaskAsAttempted: (taskId: string) => Promise<void>;
+  markTaskAsMissed: (taskId: string) => Promise<void>;
+  rescheduleTask: (taskId: string, newTime: Date) => Promise<void>;
   snoozeTask: (taskId: string, minutes: number) => Promise<void>;
+  checkMissedTasks: () => Promise<void>;
   
   // Draft actions
   saveDraft: (draft: DraftTask) => void;
@@ -52,6 +57,8 @@ interface AppState {
   // Helper functions
   getTodayTasks: () => Task[];
   getUpcomingTasks: () => Task[];
+  getPendingTasks: () => Task[];
+  getCompletedTasks: () => Task[];
   getCompletionRate: (date?: string) => number;
   getTasksByCategory: (category: string) => Task[];
 }
