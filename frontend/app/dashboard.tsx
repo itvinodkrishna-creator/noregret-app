@@ -7,8 +7,17 @@ import { TaskCard } from '../components/TaskCard';
 import { StatsCard } from '../components/StatsCard';
 import { router } from 'expo-router';
 import { format } from 'date-fns';
-import { CATEGORY_CONFIG, CategoryType } from '../types';
+import { CATEGORY_CONFIG, CategoryType, STATUS_CONFIG } from '../types';
 import { playClickSound } from '../utils/sounds';
+
+type StatusTabType = 'pending' | 'completed' | 'rescheduled' | 'missed';
+
+const STATUS_TABS: { key: StatusTabType; label: string; icon: string; color: string }[] = [
+  { key: 'pending', label: 'Pending', icon: 'time-outline', color: '#F59E0B' },
+  { key: 'completed', label: 'Completed', icon: 'checkmark-circle', color: '#10B981' },
+  { key: 'rescheduled', label: 'Rescheduled', icon: 'calendar-outline', color: '#06B6D4' },
+  { key: 'missed', label: 'Missed', icon: 'close-circle', color: '#EF4444' },
+];
 
 export default function Dashboard() {
   const { theme } = useTheme();
@@ -21,10 +30,27 @@ export default function Dashboard() {
     completeTask, 
     getTodayTasks, 
     getUpcomingTasks,
+    getPendingTasks,
+    getCompletedTasks,
+    getRescheduledTasks,
+    getMissedTasks,
+    getTasksByStatus,
   } = useAppStore();
 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null);
+  const [activeStatusTab, setActiveStatusTab] = useState<StatusTabType>('pending');
+
+  // Get counts for each status
+  const statusCounts = {
+    pending: getPendingTasks().length,
+    completed: getCompletedTasks().length,
+    rescheduled: getRescheduledTasks().length,
+    missed: getMissedTasks().length,
+  };
+
+  // Get tasks for active tab
+  const activeStatusTasks = getTasksByStatus(activeStatusTab);
 
   // Animation for category cards
   const scaleAnims = Object.keys(CATEGORY_CONFIG).reduce((acc, key) => {
