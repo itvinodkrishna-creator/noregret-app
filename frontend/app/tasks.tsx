@@ -643,7 +643,7 @@ export default function TasksScreen() {
 
       {/* Status Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusTabScroll}>
-        <View style={[styles.statusTabContainer, { borderColor: theme.border }]}>
+        <View style={styles.statusTabContainer}>
           <TouchableOpacity
             style={[
               styles.statusTab,
@@ -652,7 +652,7 @@ export default function TasksScreen() {
             ]}
             onPress={() => { playClickSound(preferences.soundEnabled); setStatusTab('pending'); }}
           >
-            <Ionicons name="time-outline" size={16} color={statusTab === 'pending' ? '#FFFFFF' : theme.textSecondary} />
+            <Ionicons name="time-outline" size={14} color={statusTab === 'pending' ? '#FFFFFF' : theme.textSecondary} />
             <Text style={[styles.statusTabText, { color: statusTab === 'pending' ? '#FFFFFF' : theme.textSecondary }]}>
               Pending
             </Text>
