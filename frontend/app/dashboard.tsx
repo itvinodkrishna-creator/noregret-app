@@ -96,7 +96,7 @@ export default function Dashboard() {
 
   const todayTasks = getTodayTasks();
   const upcomingTasks = getUpcomingTasks().slice(0, 3);
-  const completedToday = todayTasks.filter(t => t.status === 'completed').length;
+  const completedToday = todayTasks.filter(t => t.status === 'done').length;
   const todayProgress = todayTasks.length > 0 ? Math.round((completedToday / todayTasks.length) * 100) : 0;
 
   // Get category counts
