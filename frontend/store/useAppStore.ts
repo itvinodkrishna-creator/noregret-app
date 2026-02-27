@@ -59,9 +59,11 @@ interface AppState {
   getUpcomingTasks: () => Task[];
   getPendingTasks: () => Task[];
   getCompletedTasks: () => Task[];
+  getAttemptedTasks: () => Task[];
   getRescheduledTasks: () => Task[];
   getMissedTasks: () => Task[];
   getTasksByStatus: (status: string) => Task[];
+  markTaskAlarmTriggered: (taskId: string) => Promise<void>;
   getCompletionRate: (date?: string) => number;
   getTasksByCategory: (category: string) => Task[];
 }
