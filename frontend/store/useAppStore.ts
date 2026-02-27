@@ -296,7 +296,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
         }
         
         const longestStreak = Math.max(currentStreak, stats.longestStreak);
-        const totalTasksCompleted = tasks.filter(t => t.status === 'completed').length;
+        const totalTasksCompleted = tasks.filter(t => t.status === 'done' || t.status === 'attempted').length;
         
         const newStats: UserStats = {
           ...stats,
