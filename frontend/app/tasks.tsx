@@ -571,6 +571,51 @@ export default function TasksScreen() {
         </Text>
       </View>
 
+      {/* Status Tabs */}
+      <View style={[styles.statusTabContainer, { borderColor: theme.border }]}>
+        <TouchableOpacity
+          style={[
+            styles.statusTab,
+            statusTab === 'pending' && styles.statusTabActive,
+            statusTab === 'pending' && { backgroundColor: theme.primary },
+          ]}
+          onPress={() => { playClickSound(preferences.soundEnabled); setStatusTab('pending'); }}
+        >
+          <Ionicons name="time-outline" size={18} color={statusTab === 'pending' ? '#FFFFFF' : theme.textSecondary} />
+          <Text style={[styles.statusTabText, { color: statusTab === 'pending' ? '#FFFFFF' : theme.textSecondary }]}>
+            Pending
+          </Text>
+          {pendingCount > 0 && (
+            <View style={[styles.statusBadge, { backgroundColor: statusTab === 'pending' ? '#FFFFFF' : '#F59E0B' }]}>
+              <Text style={[styles.statusBadgeText, { color: statusTab === 'pending' ? theme.primary : '#FFFFFF' }]}>
+                {pendingCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.statusTab,
+            statusTab === 'completed' && styles.statusTabActive,
+            statusTab === 'completed' && { backgroundColor: '#10B981' },
+          ]}
+          onPress={() => { playClickSound(preferences.soundEnabled); setStatusTab('completed'); }}
+        >
+          <Ionicons name="checkmark-circle-outline" size={18} color={statusTab === 'completed' ? '#FFFFFF' : theme.textSecondary} />
+          <Text style={[styles.statusTabText, { color: statusTab === 'completed' ? '#FFFFFF' : theme.textSecondary }]}>
+            Completed
+          </Text>
+          {completedCount > 0 && (
+            <View style={[styles.statusBadge, { backgroundColor: statusTab === 'completed' ? '#FFFFFF' : '#10B981' }]}>
+              <Text style={[styles.statusBadgeText, { color: statusTab === 'completed' ? '#10B981' : '#FFFFFF' }]}>
+                {completedCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
       {/* Category Filter */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContainer}>
         <TouchableOpacity
