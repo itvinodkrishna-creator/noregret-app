@@ -392,6 +392,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
             return get().getPendingTasks();
           case 'completed':
             return get().getCompletedTasks();
+          case 'attempted':
+            return get().getAttemptedTasks();
           case 'rescheduled':
             return get().getRescheduledTasks();
           case 'missed':
