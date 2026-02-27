@@ -32,7 +32,7 @@ export default function Dashboard() {
     getUpcomingTasks,
     getPendingTasks,
     getCompletedTasks,
-    getRescheduledTasks,
+    getAttemptedTasks,
     getMissedTasks,
     getTasksByStatus,
   } = useAppStore();
