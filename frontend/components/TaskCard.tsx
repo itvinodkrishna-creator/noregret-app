@@ -186,6 +186,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 4,
   },
+  alarmTriggeredBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 3,
+  },
+  alarmTriggeredText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
   rightSection: {
     flexDirection: 'row',
     alignItems: 'center',
