@@ -1,6 +1,6 @@
 /**
  * Voice Reading utility for Noregret app
- * Uses expo-speech for native and Web Speech API for web
+ * Uses Web Speech API on all platforms for maximum compatibility
  */
 
 import { Platform } from 'react-native';
@@ -10,67 +10,48 @@ let readingInterval: NodeJS.Timeout | null = null;
 let stopTime: number | null = null;
 const MAX_READING_TIME = 5 * 60 * 1000; // 5 minutes max
 
-// Web speech synthesis
-let webSpeechSynthesis: SpeechSynthesis | null = null;
+// Web speech synthesis reference
+let speechSynthesis: any = null;
 
 /**
  * Initialize speech
  */
 export function initVoiceReader() {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    webSpeechSynthesis = window.speechSynthesis;
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    speechSynthesis = window.speechSynthesis;
   }
   console.log('🗣️ Voice reader initialized');
 }
 
 /**
- * Speak text once using appropriate API
+ * Speak text once
  */
 export async function speakText(text: string, rate: number = 1.0): Promise<void> {
-  return new Promise(async (resolve) => {
+  return new Promise((resolve) => {
     try {
-      if (Platform.OS === 'web') {
-        // Use Web Speech API for web
-        if (!webSpeechSynthesis) {
-          webSpeechSynthesis = window.speechSynthesis;
-        }
+      // Initialize if needed
+      if (!speechSynthesis && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        speechSynthesis = window.speechSynthesis;
+      }
+      
+      if (speechSynthesis) {
+        // Cancel any ongoing speech
+        speechSynthesis.cancel();
         
-        if (webSpeechSynthesis) {
-          webSpeechSynthesis.cancel();
-          
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.rate = rate;
-          utterance.pitch = 1.0;
-          utterance.volume = 1.0;
-          utterance.lang = 'en-US';
-          
-          utterance.onend = () => resolve();
-          utterance.onerror = () => resolve();
-          
-          webSpeechSynthesis.speak(utterance);
-          console.log('🗣️ Speaking (web):', text);
-        } else {
-          resolve();
-        }
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = rate;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        utterance.lang = 'en-US';
+        
+        utterance.onend = () => resolve();
+        utterance.onerror = () => resolve();
+        
+        speechSynthesis.speak(utterance);
+        console.log('🗣️ Speaking:', text);
       } else {
-        // Use expo-speech for native
-        try {
-          const Speech = await import('expo-speech');
-          await Speech.stop();
-          
-          Speech.speak(text, {
-            language: 'en-US',
-            pitch: 1.0,
-            rate: rate,
-            volume: 1.0,
-            onDone: () => resolve(),
-            onError: () => resolve(),
-          });
-          console.log('🗣️ Speaking (native):', text);
-        } catch (err) {
-          console.log('Speech not available:', err);
-          resolve();
-        }
+        console.log('⚠️ Speech synthesis not available');
+        resolve();
       }
     } catch (error) {
       console.error('Voice reader error:', error);
@@ -118,13 +99,8 @@ export async function stopVoiceReading() {
   }
 
   try {
-    if (Platform.OS === 'web') {
-      if (webSpeechSynthesis) {
-        webSpeechSynthesis.cancel();
-      }
-    } else {
-      const Speech = await import('expo-speech');
-      await Speech.stop();
+    if (speechSynthesis) {
+      speechSynthesis.cancel();
     }
   } catch (error) {
     // Ignore errors
@@ -144,10 +120,10 @@ export function isVoiceReading(): boolean {
  * Check if speech synthesis is supported
  */
 export function isSpeechSupported(): boolean {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  if (typeof window !== 'undefined') {
     return 'speechSynthesis' in window;
   }
-  return true; // expo-speech works on native
+  return false;
 }
 
 /**
