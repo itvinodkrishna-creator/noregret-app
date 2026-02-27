@@ -327,6 +327,9 @@ function TabLayout() {
         onKeepPending={handleKeepPending}
         onAutoStop={handleAutoStop}
       />
+      
+      {/* Floating Home Button */}
+      <FloatingHomeButton />
     </>
   );
 }
