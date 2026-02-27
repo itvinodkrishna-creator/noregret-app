@@ -114,6 +114,8 @@ export default function TasksScreen() {
   // Count for badges
   const pendingCount = getPendingTasks().length;
   const completedCount = getCompletedTasks().length;
+  const attemptedCount = getAttemptedTasks().length;
+  const missedCount = getMissedTasks().length;
 
   const resetForm = () => {
     setTitle('');
