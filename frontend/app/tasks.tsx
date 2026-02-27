@@ -6,7 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 import { TaskCardWithActions } from '../components/TaskCardWithActions';
 import { Toast } from '../components/Toast';
 import { DatePickerModal, TimePickerModal } from '../components/CustomPickers';
-import { Task, CATEGORY_CONFIG, CategoryType } from '../types';
+import { Task, CATEGORY_CONFIG, CategoryType, STATUS_CONFIG } from '../types';
 import { format, startOfToday, parseISO } from 'date-fns';
 import * as DocumentPicker from 'expo-document-picker';
 import { registerForPushNotificationsAsync } from '../utils/notifications';
@@ -15,14 +15,17 @@ import { RINGTONES, playClickSound } from '../utils/sounds';
 
 const categories: CategoryType[] = ['Work', 'Health', 'Food', 'Personal'];
 
+type StatusTab = 'pending' | 'completed';
+
 export default function TasksScreen() {
   const { theme } = useTheme();
-  const { tasks, addTask, updateTask, deleteTask, completeTask, loadData, preferences } = useAppStore();
+  const { tasks, addTask, updateTask, deleteTask, completeTask, loadData, preferences, getPendingTasks, getCompletedTasks, markTaskAsDone } = useAppStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [filter, setFilter] = useState<'all' | CategoryType>('all');
   const [customRingtones, setCustomRingtones] = useState<{id: string; label: string; url: string}[]>([]);
+  const [statusTab, setStatusTab] = useState<StatusTab>('pending');
   
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
