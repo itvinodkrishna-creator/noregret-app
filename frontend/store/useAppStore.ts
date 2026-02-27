@@ -338,8 +338,20 @@ export const useAppStore = create<AppState>()((set, get) => ({
         
         if (dateTasks.length === 0) return 0;
         
-        const completed = dateTasks.filter(task => task.status === 'completed').length;
+        const completed = dateTasks.filter(task => task.status === 'done' || task.status === 'attempted').length;
         return (completed / dateTasks.length) * 100;
+      },
+      
+      getPendingTasks: () => {
+        return get().tasks.filter(task => 
+          task.status === 'pending' || task.status === 'snoozed'
+        ).sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+      },
+      
+      getCompletedTasks: () => {
+        return get().tasks.filter(task => 
+          task.status === 'done' || task.status === 'attempted' || task.status === 'missed'
+        ).sort((a, b) => new Date(b.completedAt || b.time).getTime() - new Date(a.completedAt || a.time).getTime());
       },
       
       getTasksByCategory: (category: string) => {
