@@ -10,12 +10,12 @@ import { format } from 'date-fns';
 import { CATEGORY_CONFIG, CategoryType, STATUS_CONFIG } from '../types';
 import { playClickSound } from '../utils/sounds';
 
-type StatusTabType = 'pending' | 'completed' | 'rescheduled' | 'missed';
+type StatusTabType = 'pending' | 'completed' | 'attempted' | 'missed';
 
 const STATUS_TABS: { key: StatusTabType; label: string; icon: string; color: string }[] = [
   { key: 'pending', label: 'Pending', icon: 'time-outline', color: '#F59E0B' },
   { key: 'completed', label: 'Completed', icon: 'checkmark-circle', color: '#10B981' },
-  { key: 'rescheduled', label: 'Rescheduled', icon: 'calendar-outline', color: '#06B6D4' },
+  { key: 'attempted', label: 'Attempted', icon: 'checkmark-done', color: '#3B82F6' },
   { key: 'missed', label: 'Missed', icon: 'close-circle', color: '#EF4444' },
 ];
 
