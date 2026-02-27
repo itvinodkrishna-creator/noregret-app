@@ -3,9 +3,13 @@
  * 
  * Since expo-notifications scheduled notifications don't work reliably on web,
  * this module provides a timer-based alarm system that works across all platforms.
+ * 
+ * For native apps, it ALSO schedules a native notification as backup for when 
+ * the app is closed.
  */
 
 import { Platform } from 'react-native';
+import { scheduleBackgroundAlarm, cancelNotification } from './notifications';
 
 interface ScheduledAlarm {
   id: string;
@@ -14,7 +18,8 @@ interface ScheduledAlarm {
   description?: string;
   triggerTime: Date;
   soundUrl: string;
-  timerId?: NodeJS.Timeout;
+  timerId?: any; // Use any for cross-platform compatibility
+  nativeNotificationId?: string; // ID of the native notification for background
 }
 
 // Store scheduled alarms in memory
@@ -33,14 +38,15 @@ export function setAlarmTriggerCallback(callback: (alarm: ScheduledAlarm) => voi
 
 /**
  * Schedule an alarm to trigger at a specific time
+ * This schedules both a timer (for when app is open) and a native notification (for background)
  */
-export function scheduleAlarm(
+export async function scheduleAlarm(
   taskId: string,
   title: string,
   triggerTime: Date,
   soundUrl: string = 'default',
   description?: string
-): string {
+): Promise<string> {
   const alarmId = `alarm_${taskId}_${Date.now()}`;
   
   const now = new Date();
@@ -69,13 +75,37 @@ export function scheduleAlarm(
     soundUrl,
   };
   
-  // Set up the timer to trigger the alarm
-  // Using setTimeout for exact timing
+  // Schedule native notification for background (native platforms only)
+  // This ensures alarm plays even if app is closed
+  if (Platform.OS !== 'web') {
+    try {
+      const nativeId = await scheduleBackgroundAlarm(
+        taskId,
+        title,
+        description || 'Time for your task!',
+        triggerTime,
+        soundUrl
+      );
+      if (nativeId) {
+        alarm.nativeNotificationId = nativeId;
+        console.log('✅ Native background notification also scheduled:', nativeId);
+      }
+    } catch (error) {
+      console.error('⚠️ Could not schedule native notification:', error);
+    }
+  }
+  
+  // Set up the timer to trigger the alarm (for when app is in foreground)
   const timerId = setTimeout(() => {
     console.log('🔔🔔🔔 ALARM TRIGGERED! 🔔🔔🔔');
     console.log(`   Task: ${alarm.title}`);
     console.log(`   Scheduled for: ${alarm.triggerTime.toLocaleTimeString()}`);
     console.log(`   Actual time: ${new Date().toLocaleTimeString()}`);
+    
+    // Cancel the native notification if app is open (we'll show our custom modal instead)
+    if (alarm.nativeNotificationId && Platform.OS !== 'web') {
+      cancelNotification(alarm.nativeNotificationId);
+    }
     
     // Remove from scheduled alarms
     scheduledAlarms.delete(alarmId);
