@@ -1,51 +1,77 @@
 /**
  * Voice Reading utility for Noregret app
- * Uses expo-speech for cross-platform text-to-speech
+ * Uses expo-speech for native and Web Speech API for web
  */
 
 import { Platform } from 'react-native';
-import * as Speech from 'expo-speech';
 
 let isReading = false;
 let readingInterval: NodeJS.Timeout | null = null;
 let stopTime: number | null = null;
 const MAX_READING_TIME = 5 * 60 * 1000; // 5 minutes max
 
+// Web speech synthesis
+let webSpeechSynthesis: SpeechSynthesis | null = null;
+
 /**
- * Initialize speech (no-op for expo-speech)
+ * Initialize speech
  */
 export function initVoiceReader() {
-  console.log('🗣️ Voice reader initialized (expo-speech)');
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    webSpeechSynthesis = window.speechSynthesis;
+  }
+  console.log('🗣️ Voice reader initialized');
 }
 
 /**
- * Speak text once
+ * Speak text once using appropriate API
  */
 export async function speakText(text: string, rate: number = 1.0): Promise<void> {
   return new Promise(async (resolve) => {
     try {
-      // Check if speech is available
-      const isAvailable = await Speech.isSpeakingAsync().catch(() => false);
-      
-      // Stop any ongoing speech
-      await Speech.stop();
-      
-      // Speak the text
-      Speech.speak(text, {
-        language: 'en-US',
-        pitch: 1.0,
-        rate: rate,
-        volume: 1.0,
-        onDone: () => {
+      if (Platform.OS === 'web') {
+        // Use Web Speech API for web
+        if (!webSpeechSynthesis) {
+          webSpeechSynthesis = window.speechSynthesis;
+        }
+        
+        if (webSpeechSynthesis) {
+          webSpeechSynthesis.cancel();
+          
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = rate;
+          utterance.pitch = 1.0;
+          utterance.volume = 1.0;
+          utterance.lang = 'en-US';
+          
+          utterance.onend = () => resolve();
+          utterance.onerror = () => resolve();
+          
+          webSpeechSynthesis.speak(utterance);
+          console.log('🗣️ Speaking (web):', text);
+        } else {
           resolve();
-        },
-        onError: (error) => {
-          console.error('Speech error:', error);
+        }
+      } else {
+        // Use expo-speech for native
+        try {
+          const Speech = await import('expo-speech');
+          await Speech.stop();
+          
+          Speech.speak(text, {
+            language: 'en-US',
+            pitch: 1.0,
+            rate: rate,
+            volume: 1.0,
+            onDone: () => resolve(),
+            onError: () => resolve(),
+          });
+          console.log('🗣️ Speaking (native):', text);
+        } catch (err) {
+          console.log('Speech not available:', err);
           resolve();
-        },
-      });
-      
-      console.log('🗣️ Speaking:', text);
+        }
+      }
     } catch (error) {
       console.error('Voice reader error:', error);
       resolve();
@@ -92,7 +118,14 @@ export async function stopVoiceReading() {
   }
 
   try {
-    await Speech.stop();
+    if (Platform.OS === 'web') {
+      if (webSpeechSynthesis) {
+        webSpeechSynthesis.cancel();
+      }
+    } else {
+      const Speech = await import('expo-speech');
+      await Speech.stop();
+    }
   } catch (error) {
     // Ignore errors
   }
@@ -111,22 +144,15 @@ export function isVoiceReading(): boolean {
  * Check if speech synthesis is supported
  */
 export function isSpeechSupported(): boolean {
-  return true; // expo-speech works on all platforms
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return 'speechSynthesis' in window;
+  }
+  return true; // expo-speech works on native
 }
 
 /**
- * Preview speak (for testing ringtone selection)
+ * Preview speak (for testing)
  */
 export async function previewSpeak(text: string): Promise<void> {
-  try {
-    await Speech.stop();
-    Speech.speak(text, {
-      language: 'en-US',
-      pitch: 1.0,
-      rate: 1.0,
-      volume: 1.0,
-    });
-  } catch (error) {
-    console.error('Preview speak error:', error);
-  }
+  await speakText(text, 1.0);
 }
