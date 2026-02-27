@@ -17,6 +17,7 @@ import {
   registerForPushNotificationsAsync,
 } from '../utils/notifications';
 import { initClickSound } from '../utils/sounds';
+import { initVoiceReader } from '../utils/voiceReader';
 
 const TabIcon = ({ name, color, size, focused }: { name: string; color: string; size: number; focused: boolean }) => (
   <View style={[styles.tabIconContainer, focused && styles.tabIconFocused]}>
