@@ -32,11 +32,12 @@ interface AlarmState {
   title: string;
   description?: string;
   soundUrl: string;
+  voiceReadingEnabled: boolean;
 }
 
 function TabLayout() {
   const { theme } = useTheme();
-  const { tasks, completeTask, updateTask, loadData } = useAppStore();
+  const { tasks, completeTask, updateTask, loadData, preferences } = useAppStore();
   
   // Use useRef to keep alarm state stable across re-renders
   const [alarmState, setAlarmState] = useState<AlarmState | null>(null);
