@@ -139,6 +139,10 @@ export function cancelAlarm(alarmId: string): boolean {
     if (alarm.timerId) {
       clearTimeout(alarm.timerId);
     }
+    // Also cancel native notification if exists
+    if (alarm.nativeNotificationId && Platform.OS !== 'web') {
+      cancelNotification(alarm.nativeNotificationId);
+    }
     scheduledAlarms.delete(alarmId);
     console.log(`✅ Alarm cancelled: ${alarmId}`);
     return true;
@@ -158,6 +162,10 @@ export function cancelAlarmsForTask(taskId: string): number {
     if (alarm.taskId === taskId) {
       if (alarm.timerId) {
         clearTimeout(alarm.timerId);
+      }
+      // Also cancel native notification if exists
+      if (alarm.nativeNotificationId && Platform.OS !== 'web') {
+        cancelNotification(alarm.nativeNotificationId);
       }
       scheduledAlarms.delete(alarmId);
       cancelled++;
