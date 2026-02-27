@@ -274,5 +274,4 @@ export const useAppStore = create<AppState>()((set, get) => ({
       getTasksByCategory: (category: string) => {
         return get().tasks.filter(task => task.category === category);
       },
-    })
-);
+    }));
