@@ -319,14 +319,19 @@ export const TimePickerModal: React.FC<TimePickerModalProps> = ({
             ))}
           </View>
 
-          {/* Minute Selection */}
+          {/* Minute Selection - Scrollable for all 60 minutes */}
           <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>MINUTE</Text>
-          <View style={styles.timeGrid}>
+          <ScrollView 
+            style={styles.minuteScrollContainer} 
+            contentContainerStyle={styles.timeGrid}
+            showsVerticalScrollIndicator={true}
+            nestedScrollEnabled={true}
+          >
             {minutes.map((minute) => (
               <TouchableOpacity
                 key={`min-${minute}`}
                 style={[
-                  styles.timeCell,
+                  styles.minuteCell,
                   { backgroundColor: theme.card },
                   selectedMinute === minute && { backgroundColor: theme.primary },
                 ]}
@@ -334,7 +339,7 @@ export const TimePickerModal: React.FC<TimePickerModalProps> = ({
               >
                 <Text
                   style={[
-                    styles.timeCellText,
+                    styles.minuteCellText,
                     { color: selectedMinute === minute ? '#FFFFFF' : theme.text },
                   ]}
                 >
@@ -342,7 +347,7 @@ export const TimePickerModal: React.FC<TimePickerModalProps> = ({
                 </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
 
           {/* Action Buttons */}
           <View style={styles.actions}>
