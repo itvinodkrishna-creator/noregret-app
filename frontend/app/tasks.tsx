@@ -492,6 +492,27 @@ export default function TasksScreen() {
           )}
         </>
       )}
+
+      {/* Voice Reading Toggle */}
+      {reminderEnabled && (
+        <View style={[styles.voiceToggleContainer, { borderTopColor: theme.border }]}>
+          <View style={styles.voiceToggleLeft}>
+            <Ionicons name="mic" size={22} color="#10B981" />
+            <View style={styles.voiceToggleInfo}>
+              <Text style={[styles.voiceToggleTitle, { color: theme.text }]}>Voice Reading</Text>
+              <Text style={[styles.voiceToggleSubtitle, { color: theme.textSecondary }]}>
+                Read task title aloud at alarm time
+              </Text>
+            </View>
+          </View>
+          <Switch
+            value={voiceReadingEnabled}
+            onValueChange={setVoiceReadingEnabled}
+            trackColor={{ false: theme.border, true: theme.primary + '80' }}
+            thumbColor={voiceReadingEnabled ? theme.primary : '#f4f3f4'}
+          />
+        </View>
+      )}
     </ScrollView>
   );
 
