@@ -12,7 +12,8 @@ export interface Task {
   notificationId?: string;
   ringtone?: string;
   voiceReadingEnabled?: boolean;
-  alarmTriggered?: boolean; // Track if alarm has triggered for this task
+  alarmTriggered?: boolean;
+  voiceUri?: string; // Recorded voice to play at alarm time
 }
 
 // Status configuration for display
