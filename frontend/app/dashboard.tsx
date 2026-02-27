@@ -580,4 +580,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  // Bottom Stats Styles
+  bottomStatsContainer: {
+    marginTop: 24,
+    marginBottom: 16,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#2C2C2E',
+  },
+  bottomStatsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 16,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
 });
