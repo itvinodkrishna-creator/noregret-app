@@ -30,6 +30,7 @@ export interface UserPreferences {
   notificationFrequency: number;
   soundEnabled: boolean;
   vibrationEnabled: boolean;
+  voiceReadingEnabled?: boolean;
   lastActivity?: string;
 }
 
