@@ -171,28 +171,6 @@ export default function Dashboard() {
           </Text>
         </View>
 
-        {/* Mini Stats Row - Compact */}
-        <View style={styles.statsRow}>
-          <StatsCard 
-            icon="flame" 
-            label="Streak" 
-            value={stats.currentStreak} 
-            color={theme.warning}
-          />
-          <StatsCard 
-            icon="checkmark-circle" 
-            label="Today" 
-            value={`${todayProgress}%`} 
-            color={theme.success}
-          />
-          <StatsCard 
-            icon="trophy" 
-            label="Total" 
-            value={stats.totalTasksCompleted} 
-            color={theme.primary}
-          />
-        </View>
-
         {/* BIG Category Cards */}
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Categories</Text>
         <View style={styles.categoryGrid}>
