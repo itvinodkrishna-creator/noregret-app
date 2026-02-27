@@ -224,6 +224,87 @@ export default function Dashboard() {
           ))}
         </View>
 
+        {/* Task Status Tabs */}
+        <Text style={[styles.sectionTitle, { color: theme.text, marginTop: 20 }]}>Task Status</Text>
+        <View style={styles.statusTabsContainer}>
+          {STATUS_TABS.map((tab) => {
+            const isActive = activeStatusTab === tab.key;
+            const count = statusCounts[tab.key];
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[
+                  styles.statusTab,
+                  isActive && { backgroundColor: tab.color + '20', borderColor: tab.color },
+                  { borderColor: theme.border },
+                ]}
+                onPress={() => {
+                  playClickSound(preferences.soundEnabled);
+                  setActiveStatusTab(tab.key);
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons 
+                  name={tab.icon as any} 
+                  size={16} 
+                  color={isActive ? tab.color : theme.textSecondary} 
+                />
+                <Text style={[
+                  styles.statusTabLabel,
+                  { color: isActive ? tab.color : theme.textSecondary }
+                ]}>
+                  {tab.label}
+                </Text>
+                {count > 0 && (
+                  <View style={[styles.statusBadge, { backgroundColor: tab.color }]}>
+                    <Text style={styles.statusBadgeText}>{count}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Tasks for Selected Status */}
+        <View style={styles.section}>
+          {activeStatusTasks.length === 0 ? (
+            <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <Ionicons 
+                name={STATUS_TABS.find(t => t.key === activeStatusTab)?.icon as any || 'list'} 
+                size={40} 
+                color={theme.textSecondary} 
+              />
+              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                No {activeStatusTab} tasks
+              </Text>
+            </View>
+          ) : (
+            activeStatusTasks.slice(0, 5).map(task => (
+              <TaskCard
+                key={task._id}
+                task={task}
+                onPress={() => router.push('/tasks')}
+                onComplete={() => {
+                  if (task.status !== 'done' && task.status !== 'attempted' && task.status !== 'missed') {
+                    playClickSound(preferences.soundEnabled);
+                    task._id && completeTask(task._id);
+                  }
+                }}
+              />
+            ))
+          )}
+          {activeStatusTasks.length > 5 && (
+            <TouchableOpacity 
+              style={styles.viewMoreBtn}
+              onPress={() => handlePress(() => router.push('/tasks'))}
+            >
+              <Text style={[styles.viewMoreText, { color: theme.primary }]}>
+                View all {activeStatusTasks.length} tasks →
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Today's Tasks */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
