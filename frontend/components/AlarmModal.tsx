@@ -6,6 +6,8 @@ import { startRepeatingVoice, stopVoiceReading, isSpeechSupported } from '../uti
 
 const { width, height } = Dimensions.get('window');
 
+const AUTO_STOP_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
+
 interface AlarmModalProps {
   visible: boolean;
   taskTitle: string;
@@ -18,6 +20,7 @@ interface AlarmModalProps {
   onMarkAttempted: () => void;
   onReschedule: (newTime: Date) => void;
   onKeepPending: () => void;
+  onAutoStop?: () => void;
 }
 
 type ScreenState = 'alarm' | 'completion' | 'reschedule';
@@ -34,15 +37,21 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
   onMarkAttempted,
   onReschedule,
   onKeepPending,
+  onAutoStop,
 }) => {
   const [screen, setScreen] = useState<ScreenState>('alarm');
+  const [timeRemaining, setTimeRemaining] = useState(AUTO_STOP_TIME);
   const currentTime = format(new Date(), 'h:mm a');
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const bellAnim = useRef(new Animated.Value(0)).current;
+  const autoStopTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (visible) {
       setScreen('alarm');
+      setTimeRemaining(AUTO_STOP_TIME);
+      
       // Start vibration pattern when alarm shows
       const vibrationPattern = [0, 500, 200, 500];
       Vibration.vibrate(vibrationPattern, true); // Repeat
@@ -89,23 +98,66 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
         const announcement = `Reminder: ${taskTitle}`;
         startRepeatingVoice(announcement, 8000);
       }
+
+      // Auto-stop timer after 5 minutes
+      autoStopTimerRef.current = setTimeout(() => {
+        console.log('⏰ Alarm auto-stopped after 5 minutes');
+        handleAutoStop();
+      }, AUTO_STOP_TIME);
+
+      // Countdown timer for display
+      countdownRef.current = setInterval(() => {
+        setTimeRemaining(prev => Math.max(0, prev - 1000));
+      }, 1000);
+
     } else {
       // Stop vibration when dismissed
       Vibration.cancel();
       stopVoiceReading();
       pulseAnim.setValue(1);
       bellAnim.setValue(0);
+      
+      // Clear timers
+      if (autoStopTimerRef.current) {
+        clearTimeout(autoStopTimerRef.current);
+        autoStopTimerRef.current = null;
+      }
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
     }
 
     return () => {
       Vibration.cancel();
       stopVoiceReading();
+      if (autoStopTimerRef.current) {
+        clearTimeout(autoStopTimerRef.current);
+      }
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+      }
     };
   }, [visible, taskTitle, voiceReadingEnabled]);
+
+  const handleAutoStop = () => {
+    stopVoiceReading();
+    Vibration.cancel();
+    if (onAutoStop) {
+      onAutoStop();
+    }
+    // Mark as missed after auto-stop
+    onDismiss();
+  };
 
   const handleStop = () => {
     stopVoiceReading();
     Vibration.cancel();
+    // Clear auto-stop timer
+    if (autoStopTimerRef.current) {
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
     setScreen('completion');
   };
 
@@ -126,6 +178,17 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
   const handleKeepPending = () => {
     onKeepPending();
     onDismiss();
+  };
+
+  const handleSnooze = (minutes: number) => {
+    stopVoiceReading();
+    Vibration.cancel();
+    // Clear auto-stop timer
+    if (autoStopTimerRef.current) {
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
+    onSnooze(minutes);
   };
 
   const handleRescheduleOption = (option: string) => {
@@ -160,6 +223,11 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
     inputRange: [-1, 0, 1],
     outputRange: ['-15deg', '0deg', '15deg'],
   });
+
+  // Format countdown time
+  const minutes = Math.floor(timeRemaining / 60000);
+  const seconds = Math.floor((timeRemaining % 60000) / 1000);
+  const countdownText = `Auto-stop in ${minutes}:${seconds.toString().padStart(2, '0')}`;
 
   // Alarm Screen
   if (screen === 'alarm') {
@@ -208,27 +276,30 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
               <Text style={styles.alarmText}>Alarm Ringing...</Text>
             </View>
 
+            {/* Auto-stop countdown */}
+            <Text style={styles.countdownText}>{countdownText}</Text>
+
             <View style={styles.actions}>
               <View style={styles.snoozeContainer}>
                 <Text style={styles.snoozeLabel}>SNOOZE</Text>
                 <View style={styles.snoozeButtons}>
                   <TouchableOpacity
                     style={styles.snoozeButton}
-                    onPress={() => onSnooze(5)}
+                    onPress={() => handleSnooze(5)}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.snoozeButtonText}>5 min</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.snoozeButton}
-                    onPress={() => onSnooze(10)}
+                    onPress={() => handleSnooze(10)}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.snoozeButtonText}>10 min</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.snoozeButton}
-                    onPress={() => onSnooze(15)}
+                    onPress={() => handleSnooze(15)}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.snoozeButtonText}>15 min</Text>
@@ -320,36 +391,62 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
           <Text style={styles.taskNameSmall}>{taskTitle}</Text>
 
           <View style={styles.optionsContainer}>
+            {/* Snooze Options */}
+            <Text style={styles.optionSectionTitle}>Snooze & Try Again</Text>
+            <View style={styles.rescheduleOptions}>
+              <TouchableOpacity
+                style={styles.rescheduleButton}
+                onPress={() => handleSnooze(5)}
+              >
+                <Ionicons name="alarm-outline" size={20} color="#F59E0B" />
+                <Text style={styles.rescheduleText}>5 min</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.rescheduleButton}
+                onPress={() => handleSnooze(10)}
+              >
+                <Ionicons name="alarm-outline" size={20} color="#F59E0B" />
+                <Text style={styles.rescheduleText}>10 min</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.rescheduleButton}
+                onPress={() => handleSnooze(15)}
+              >
+                <Ionicons name="alarm-outline" size={20} color="#F59E0B" />
+                <Text style={styles.rescheduleText}>15 min</Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Reschedule Options */}
-            <Text style={styles.optionSectionTitle}>Reschedule</Text>
+            <Text style={[styles.optionSectionTitle, { marginTop: 20 }]}>Reschedule</Text>
             <View style={styles.rescheduleOptions}>
               <TouchableOpacity
                 style={styles.rescheduleButton}
                 onPress={() => handleRescheduleOption('30min')}
               >
                 <Ionicons name="time-outline" size={20} color="#8B5CF6" />
-                <Text style={styles.rescheduleText}>In 30 min</Text>
+                <Text style={styles.rescheduleText}>30 min</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.rescheduleButton}
                 onPress={() => handleRescheduleOption('1hour')}
               >
                 <Ionicons name="time-outline" size={20} color="#8B5CF6" />
-                <Text style={styles.rescheduleText}>In 1 hour</Text>
+                <Text style={styles.rescheduleText}>1 hour</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.rescheduleButton}
                 onPress={() => handleRescheduleOption('3hours')}
               >
                 <Ionicons name="time-outline" size={20} color="#8B5CF6" />
-                <Text style={styles.rescheduleText}>In 3 hours</Text>
+                <Text style={styles.rescheduleText}>3 hours</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.rescheduleButton}
                 onPress={() => handleRescheduleOption('tomorrow')}
               >
                 <Ionicons name="calendar-outline" size={20} color="#8B5CF6" />
-                <Text style={styles.rescheduleText}>Tomorrow 9 AM</Text>
+                <Text style={styles.rescheduleText}>Tomorrow</Text>
               </TouchableOpacity>
             </View>
 
@@ -457,12 +554,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   title: {
-    fontSize: 42,
+    fontSize: 38,
     fontWeight: 'bold',
     color: '#F59E0B',
     textAlign: 'center',
     marginBottom: 12,
-    lineHeight: 52,
+    lineHeight: 48,
     paddingHorizontal: 16,
   },
   description: {
@@ -494,13 +591,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 24,
-    marginBottom: 36,
+    marginBottom: 12,
   },
   alarmText: {
     color: '#EF4444',
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 10,
+  },
+  countdownText: {
+    fontSize: 14,
+    color: '#808080',
+    marginBottom: 24,
   },
   actions: {
     width: '100%',
