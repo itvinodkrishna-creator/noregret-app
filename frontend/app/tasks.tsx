@@ -919,4 +919,29 @@ const styles = StyleSheet.create({
   dateTimePicker: {
     height: 200,
   },
+  voiceToggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 16,
+    marginTop: 16,
+    borderTopWidth: 1,
+  },
+  voiceToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  voiceToggleInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  voiceToggleTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  voiceToggleSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
 });
