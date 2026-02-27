@@ -353,8 +353,35 @@ export const useAppStore = create<AppState>()((set, get) => ({
       
       getCompletedTasks: () => {
         return get().tasks.filter(task => 
-          task.status === 'done' || task.status === 'attempted' || task.status === 'missed'
+          task.status === 'done' || task.status === 'attempted'
         ).sort((a, b) => new Date(b.completedAt || b.time).getTime() - new Date(a.completedAt || a.time).getTime());
+      },
+      
+      getRescheduledTasks: () => {
+        return get().tasks.filter(task => 
+          task.status === 'rescheduled'
+        ).sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+      },
+      
+      getMissedTasks: () => {
+        return get().tasks.filter(task => 
+          task.status === 'missed'
+        ).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+      },
+      
+      getTasksByStatus: (status: string) => {
+        switch(status) {
+          case 'pending':
+            return get().getPendingTasks();
+          case 'completed':
+            return get().getCompletedTasks();
+          case 'rescheduled':
+            return get().getRescheduledTasks();
+          case 'missed':
+            return get().getMissedTasks();
+          default:
+            return get().tasks;
+        }
       },
       
       getTasksByCategory: (category: string) => {
