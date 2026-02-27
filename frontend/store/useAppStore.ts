@@ -56,9 +56,7 @@ interface AppState {
   getTasksByCategory: (category: string) => Task[];
 }
 
-export const useAppStore = create<AppState>()(
-  persist(
-    (set, get) => ({
+export const useAppStore = create<AppState>()((set, get) => ({
       tasks: [],
       foodPlans: [],
       preferences: { 
