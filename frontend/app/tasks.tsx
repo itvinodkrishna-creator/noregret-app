@@ -19,7 +19,7 @@ type StatusTab = 'pending' | 'completed' | 'attempted' | 'missed';
 
 export default function TasksScreen() {
   const { theme } = useTheme();
-  const { tasks, addTask, updateTask, deleteTask, completeTask, loadData, preferences, getPendingTasks, getCompletedTasks, markTaskAsDone } = useAppStore();
+  const { tasks, addTask, updateTask, deleteTask, completeTask, loadData, preferences, getPendingTasks, getCompletedTasks, getAttemptedTasks, getMissedTasks, markTaskAsDone } = useAppStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
