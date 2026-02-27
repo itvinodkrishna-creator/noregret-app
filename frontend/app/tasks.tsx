@@ -673,7 +673,7 @@ export default function TasksScreen() {
             ]}
             onPress={() => { playClickSound(preferences.soundEnabled); setStatusTab('completed'); }}
           >
-            <Ionicons name="checkmark-circle" size={16} color={statusTab === 'completed' ? '#FFFFFF' : theme.textSecondary} />
+            <Ionicons name="checkmark-circle" size={14} color={statusTab === 'completed' ? '#FFFFFF' : theme.textSecondary} />
             <Text style={[styles.statusTabText, { color: statusTab === 'completed' ? '#FFFFFF' : theme.textSecondary }]}>
               Done
             </Text>
@@ -694,7 +694,7 @@ export default function TasksScreen() {
             ]}
             onPress={() => { playClickSound(preferences.soundEnabled); setStatusTab('attempted'); }}
           >
-            <Ionicons name="checkmark-done" size={16} color={statusTab === 'attempted' ? '#FFFFFF' : theme.textSecondary} />
+            <Ionicons name="checkmark-done" size={14} color={statusTab === 'attempted' ? '#FFFFFF' : theme.textSecondary} />
             <Text style={[styles.statusTabText, { color: statusTab === 'attempted' ? '#FFFFFF' : theme.textSecondary }]}>
               Attempted
             </Text>
@@ -715,7 +715,7 @@ export default function TasksScreen() {
             ]}
             onPress={() => { playClickSound(preferences.soundEnabled); setStatusTab('missed'); }}
           >
-            <Ionicons name="close-circle" size={16} color={statusTab === 'missed' ? '#FFFFFF' : theme.textSecondary} />
+            <Ionicons name="close-circle" size={14} color={statusTab === 'missed' ? '#FFFFFF' : theme.textSecondary} />
             <Text style={[styles.statusTabText, { color: statusTab === 'missed' ? '#FFFFFF' : theme.textSecondary }]}>
               Missed
             </Text>
