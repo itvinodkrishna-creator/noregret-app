@@ -103,16 +103,14 @@ function TabLayout() {
     };
   }, []);
 
-  // Handle dismiss (STOP button)
+  // Handle dismiss (STOP button - now goes to completion question)
   const handleDismissAlarm = useCallback(async () => {
-    console.log('🛑 STOP pressed - Dismissing alarm');
+    console.log('🛑 Alarm dismissed');
     
     await stopAlarmSound();
     
     const currentAlarm = alarmStateRef.current;
     if (currentAlarm) {
-      // Mark task as completed
-      await completeTask(currentAlarm.taskId);
       // Cancel any remaining alarms for this task
       cancelAlarmsForTask(currentAlarm.taskId);
     }
@@ -120,8 +118,63 @@ function TabLayout() {
     alarmStateRef.current = null;
     setAlarmState(null);
     
-    console.log('✅ Alarm dismissed, modal hidden');
-  }, [completeTask]);
+    console.log('✅ Alarm modal hidden');
+  }, []);
+
+  // Handle mark as done
+  const handleMarkDone = useCallback(async () => {
+    console.log('✅ Task marked as DONE');
+    
+    const currentAlarm = alarmStateRef.current;
+    if (currentAlarm) {
+      await markTaskAsDone(currentAlarm.taskId);
+      cancelAlarmsForTask(currentAlarm.taskId);
+    }
+  }, [markTaskAsDone]);
+
+  // Handle mark as attempted
+  const handleMarkAttempted = useCallback(async () => {
+    console.log('🔵 Task marked as ATTEMPTED');
+    
+    const currentAlarm = alarmStateRef.current;
+    if (currentAlarm) {
+      await markTaskAsAttempted(currentAlarm.taskId);
+      cancelAlarmsForTask(currentAlarm.taskId);
+    }
+  }, [markTaskAsAttempted]);
+
+  // Handle reschedule
+  const handleReschedule = useCallback(async (newTime: Date) => {
+    console.log('📅 Task rescheduled to:', newTime);
+    
+    const currentAlarm = alarmStateRef.current;
+    if (currentAlarm) {
+      cancelAlarmsForTask(currentAlarm.taskId);
+      await rescheduleTask(currentAlarm.taskId, newTime);
+      
+      // Schedule new alarm
+      const task = tasks.find(t => t._id === currentAlarm.taskId);
+      if (task?.reminderEnabled) {
+        scheduleAlarm(
+          currentAlarm.taskId,
+          currentAlarm.title,
+          newTime,
+          task.ringtone || 'default'
+        );
+      }
+    }
+  }, [rescheduleTask, tasks]);
+
+  // Handle keep pending
+  const handleKeepPending = useCallback(async () => {
+    console.log('⏳ Task kept in pending');
+    
+    const currentAlarm = alarmStateRef.current;
+    if (currentAlarm) {
+      cancelAlarmsForTask(currentAlarm.taskId);
+      // Task stays as pending, no status change needed
+    }
+  }, []);
 
   // Handle snooze
   const handleSnoozeAlarm = useCallback(async (minutes: number) => {
