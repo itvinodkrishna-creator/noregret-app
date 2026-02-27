@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
 import { AlarmModal } from '../components/AlarmModal';
+import { FloatingHomeButton } from '../components/FloatingHomeButton';
 import { 
   setAlarmTriggerCallback, 
   snoozeAlarm as snoozeAlarmScheduler,
