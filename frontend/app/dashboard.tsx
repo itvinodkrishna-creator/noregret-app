@@ -45,7 +45,7 @@ export default function Dashboard() {
   const statusCounts = {
     pending: getPendingTasks().length,
     completed: getCompletedTasks().length,
-    rescheduled: getRescheduledTasks().length,
+    attempted: getAttemptedTasks().length,
     missed: getMissedTasks().length,
   };
 
