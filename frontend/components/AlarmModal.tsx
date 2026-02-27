@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, Dimensions, Vibration,
 import { Ionicons } from '@expo/vector-icons';
 import { format, addMinutes, addHours, addDays } from 'date-fns';
 import { startRepeatingVoice, stopVoiceReading, isSpeechSupported } from '../utils/voiceReader';
+import { Audio } from 'expo-av';
 
 const { width, height } = Dimensions.get('window');
 
@@ -14,6 +15,7 @@ interface AlarmModalProps {
   taskDescription?: string;
   taskId: string;
   voiceReadingEnabled?: boolean;
+  voiceUri?: string; // Recorded voice to play
   onDismiss: () => void;
   onSnooze: (minutes: number) => void;
   onMarkDone: () => void;
@@ -31,6 +33,7 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
   taskDescription,
   taskId,
   voiceReadingEnabled = false,
+  voiceUri,
   onDismiss,
   onSnooze,
   onMarkDone,
@@ -41,11 +44,14 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
 }) => {
   const [screen, setScreen] = useState<ScreenState>('alarm');
   const [timeRemaining, setTimeRemaining] = useState(AUTO_STOP_TIME);
+  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
   const currentTime = format(new Date(), 'h:mm a');
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const bellAnim = useRef(new Animated.Value(0)).current;
-  const autoStopTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const autoStopTimerRef = useRef<any>(null);
+  const countdownRef = useRef<any>(null);
+  const voiceSoundRef = useRef<Audio.Sound | null>(null);
+  const voiceLoopTimerRef = useRef<any>(null);
 
   useEffect(() => {
     if (visible) {
