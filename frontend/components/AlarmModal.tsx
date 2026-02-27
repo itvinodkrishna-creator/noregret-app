@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Dimensions, Vibration, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
+import { format, addMinutes, addHours, addDays } from 'date-fns';
 import { startRepeatingVoice, stopVoiceReading, isSpeechSupported } from '../utils/voiceReader';
 
 const { width, height } = Dimensions.get('window');
@@ -10,25 +10,39 @@ interface AlarmModalProps {
   visible: boolean;
   taskTitle: string;
   taskDescription?: string;
+  taskId: string;
   voiceReadingEnabled?: boolean;
   onDismiss: () => void;
   onSnooze: (minutes: number) => void;
+  onMarkDone: () => void;
+  onMarkAttempted: () => void;
+  onReschedule: (newTime: Date) => void;
+  onKeepPending: () => void;
 }
+
+type ScreenState = 'alarm' | 'completion' | 'reschedule';
 
 export const AlarmModal: React.FC<AlarmModalProps> = ({
   visible,
   taskTitle,
   taskDescription,
+  taskId,
   voiceReadingEnabled = false,
   onDismiss,
   onSnooze,
+  onMarkDone,
+  onMarkAttempted,
+  onReschedule,
+  onKeepPending,
 }) => {
+  const [screen, setScreen] = useState<ScreenState>('alarm');
   const currentTime = format(new Date(), 'h:mm a');
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const bellAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
+      setScreen('alarm');
       // Start vibration pattern when alarm shows
       const vibrationPattern = [0, 500, 200, 500];
       Vibration.vibrate(vibrationPattern, true); // Repeat
@@ -73,14 +87,12 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
       // Start voice reading if enabled
       if (voiceReadingEnabled && isSpeechSupported()) {
         const announcement = `Reminder: ${taskTitle}`;
-        startRepeatingVoice(announcement, 8000); // Repeat every 8 seconds
+        startRepeatingVoice(announcement, 8000);
       }
     } else {
       // Stop vibration when dismissed
       Vibration.cancel();
-      // Stop voice reading
       stopVoiceReading();
-      // Reset animations
       pulseAnim.setValue(1);
       bellAnim.setValue(0);
     }
@@ -91,16 +103,55 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
     };
   }, [visible, taskTitle, voiceReadingEnabled]);
 
-  const handleDismiss = () => {
+  const handleStop = () => {
     stopVoiceReading();
     Vibration.cancel();
+    setScreen('completion');
+  };
+
+  const handleYes = () => {
+    onMarkDone();
     onDismiss();
   };
 
-  const handleSnooze = (minutes: number) => {
-    stopVoiceReading();
-    Vibration.cancel();
-    onSnooze(minutes);
+  const handleNo = () => {
+    setScreen('reschedule');
+  };
+
+  const handleAttempted = () => {
+    onMarkAttempted();
+    onDismiss();
+  };
+
+  const handleKeepPending = () => {
+    onKeepPending();
+    onDismiss();
+  };
+
+  const handleRescheduleOption = (option: string) => {
+    const now = new Date();
+    let newTime: Date;
+    
+    switch (option) {
+      case '30min':
+        newTime = addMinutes(now, 30);
+        break;
+      case '1hour':
+        newTime = addHours(now, 1);
+        break;
+      case '3hours':
+        newTime = addHours(now, 3);
+        break;
+      case 'tomorrow':
+        newTime = addDays(now, 1);
+        newTime.setHours(9, 0, 0, 0);
+        break;
+      default:
+        newTime = addHours(now, 1);
+    }
+    
+    onReschedule(newTime);
+    onDismiss();
   };
 
   if (!visible) return null;
@@ -110,6 +161,146 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
     outputRange: ['-15deg', '0deg', '15deg'],
   });
 
+  // Alarm Screen
+  if (screen === 'alarm') {
+    return (
+      <Modal
+        visible={visible}
+        animationType="fade"
+        transparent={false}
+        statusBarTranslucent
+        presentationStyle="fullScreen"
+        onRequestClose={handleStop}
+      >
+        <View style={styles.fullScreen}>
+          <View style={styles.background}>
+            <View style={[styles.gradientCircle, styles.circle1]} />
+            <View style={[styles.gradientCircle, styles.circle2]} />
+            <View style={[styles.gradientCircle, styles.circle3]} />
+          </View>
+
+          <View style={styles.content}>
+            <View style={styles.iconContainer}>
+              <Animated.View 
+                style={[styles.pulseCircle, { transform: [{ scale: pulseAnim }] }]} 
+              />
+              <Animated.View style={{ transform: [{ rotate: bellRotate }] }}>
+                <Ionicons name="alarm" size={100} color="#EF4444" />
+              </Animated.View>
+            </View>
+
+            <Text style={styles.time}>{currentTime}</Text>
+            <Text style={styles.title} numberOfLines={3}>{taskTitle}</Text>
+
+            {taskDescription && (
+              <Text style={styles.description}>{taskDescription}</Text>
+            )}
+
+            {voiceReadingEnabled && (
+              <View style={styles.voiceIndicator}>
+                <Ionicons name="mic" size={20} color="#10B981" />
+                <Text style={styles.voiceText}>Voice Reading Active</Text>
+              </View>
+            )}
+
+            <View style={styles.alarmIndicator}>
+              <Ionicons name="volume-high" size={24} color="#EF4444" />
+              <Text style={styles.alarmText}>Alarm Ringing...</Text>
+            </View>
+
+            <View style={styles.actions}>
+              <View style={styles.snoozeContainer}>
+                <Text style={styles.snoozeLabel}>SNOOZE</Text>
+                <View style={styles.snoozeButtons}>
+                  <TouchableOpacity
+                    style={styles.snoozeButton}
+                    onPress={() => onSnooze(5)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.snoozeButtonText}>5 min</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.snoozeButton}
+                    onPress={() => onSnooze(10)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.snoozeButtonText}>10 min</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.snoozeButton}
+                    onPress={() => onSnooze(15)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.snoozeButtonText}>15 min</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.stopButton}
+                onPress={handleStop}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="stop-circle" size={32} color="#FFFFFF" />
+                <Text style={styles.stopText}>STOP</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
+  // Completion Question Screen
+  if (screen === 'completion') {
+    return (
+      <Modal
+        visible={visible}
+        animationType="fade"
+        transparent={false}
+        statusBarTranslucent
+        presentationStyle="fullScreen"
+      >
+        <View style={styles.fullScreen}>
+          <View style={[styles.background, { backgroundColor: '#0F172A' }]}>
+            <View style={[styles.gradientCircle, styles.circle1, { backgroundColor: '#10B981' }]} />
+            <View style={[styles.gradientCircle, styles.circle2, { backgroundColor: '#3B82F6' }]} />
+          </View>
+
+          <View style={styles.content}>
+            <View style={styles.questionIconContainer}>
+              <Ionicons name="help-circle" size={80} color="#F59E0B" />
+            </View>
+
+            <Text style={styles.questionTitle}>Did you complete this task?</Text>
+            <Text style={styles.taskNameDisplay}>{taskTitle}</Text>
+
+            <View style={styles.completionButtons}>
+              <TouchableOpacity
+                style={styles.yesButton}
+                onPress={handleYes}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="checkmark-circle" size={28} color="#FFFFFF" />
+                <Text style={styles.yesButtonText}>Yes, Done!</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.noButton}
+                onPress={handleNo}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="close-circle" size={28} color="#FFFFFF" />
+                <Text style={styles.noButtonText}>No</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
+  // Reschedule / Options Screen
   return (
     <Modal
       visible={visible}
@@ -117,96 +308,84 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
       transparent={false}
       statusBarTranslucent
       presentationStyle="fullScreen"
-      onRequestClose={handleDismiss}
     >
       <View style={styles.fullScreen}>
-        {/* Background with animated gradient effect */}
-        <View style={styles.background}>
-          <View style={[styles.gradientCircle, styles.circle1]} />
-          <View style={[styles.gradientCircle, styles.circle2]} />
-          <View style={[styles.gradientCircle, styles.circle3]} />
+        <View style={[styles.background, { backgroundColor: '#0F172A' }]}>
+          <View style={[styles.gradientCircle, styles.circle1, { backgroundColor: '#8B5CF6' }]} />
+          <View style={[styles.gradientCircle, styles.circle2, { backgroundColor: '#EC4899' }]} />
         </View>
 
-        {/* Main content */}
         <View style={styles.content}>
-          {/* Alarm icon with pulsing and shaking animation */}
-          <View style={styles.iconContainer}>
-            <Animated.View 
-              style={[
-                styles.pulseCircle,
-                { transform: [{ scale: pulseAnim }] }
-              ]} 
-            />
-            <Animated.View style={{ transform: [{ rotate: bellRotate }] }}>
-              <Ionicons name="alarm" size={100} color="#EF4444" />
-            </Animated.View>
-          </View>
+          <Text style={styles.optionsTitle}>What would you like to do?</Text>
+          <Text style={styles.taskNameSmall}>{taskTitle}</Text>
 
-          {/* Time - Smaller font */}
-          <Text style={styles.time}>{currentTime}</Text>
-
-          {/* Task title - BIGGER, BOLD, YELLOW, CENTERED */}
-          <Text style={styles.title} numberOfLines={3}>{taskTitle}</Text>
-
-          {/* Task description */}
-          {taskDescription && (
-            <Text style={styles.description}>{taskDescription}</Text>
-          )}
-
-          {/* Voice indicator */}
-          {voiceReadingEnabled && (
-            <View style={styles.voiceIndicator}>
-              <Ionicons name="mic" size={20} color="#10B981" />
-              <Text style={styles.voiceText}>Voice Reading Active</Text>
-            </View>
-          )}
-
-          {/* Alarm indicator */}
-          <View style={styles.alarmIndicator}>
-            <Ionicons name="volume-high" size={24} color="#EF4444" />
-            <Text style={styles.alarmText}>Alarm Ringing...</Text>
-          </View>
-
-          {/* Action buttons */}
-          <View style={styles.actions}>
-            {/* Snooze options */}
-            <View style={styles.snoozeContainer}>
-              <Text style={styles.snoozeLabel}>SNOOZE</Text>
-              <View style={styles.snoozeButtons}>
-                <TouchableOpacity
-                  style={styles.snoozeButton}
-                  onPress={() => handleSnooze(5)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.snoozeButtonText}>5 min</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.snoozeButton}
-                  onPress={() => handleSnooze(10)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.snoozeButtonText}>10 min</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.snoozeButton}
-                  onPress={() => handleSnooze(15)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.snoozeButtonText}>15 min</Text>
-                </TouchableOpacity>
-              </View>
+          <View style={styles.optionsContainer}>
+            {/* Reschedule Options */}
+            <Text style={styles.optionSectionTitle}>Reschedule</Text>
+            <View style={styles.rescheduleOptions}>
+              <TouchableOpacity
+                style={styles.rescheduleButton}
+                onPress={() => handleRescheduleOption('30min')}
+              >
+                <Ionicons name="time-outline" size={20} color="#8B5CF6" />
+                <Text style={styles.rescheduleText}>In 30 min</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.rescheduleButton}
+                onPress={() => handleRescheduleOption('1hour')}
+              >
+                <Ionicons name="time-outline" size={20} color="#8B5CF6" />
+                <Text style={styles.rescheduleText}>In 1 hour</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.rescheduleButton}
+                onPress={() => handleRescheduleOption('3hours')}
+              >
+                <Ionicons name="time-outline" size={20} color="#8B5CF6" />
+                <Text style={styles.rescheduleText}>In 3 hours</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.rescheduleButton}
+                onPress={() => handleRescheduleOption('tomorrow')}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#8B5CF6" />
+                <Text style={styles.rescheduleText}>Tomorrow 9 AM</Text>
+              </TouchableOpacity>
             </View>
 
-            {/* STOP button - Big and prominent */}
+            {/* Other Options */}
+            <Text style={[styles.optionSectionTitle, { marginTop: 24 }]}>Or</Text>
+            
             <TouchableOpacity
-              style={styles.stopButton}
-              onPress={handleDismiss}
-              activeOpacity={0.8}
+              style={styles.attemptedButton}
+              onPress={handleAttempted}
             >
-              <Ionicons name="stop-circle" size={32} color="#FFFFFF" />
-              <Text style={styles.stopText}>STOP</Text>
+              <Ionicons name="checkmark-done" size={24} color="#3B82F6" />
+              <View style={styles.attemptedTextContainer}>
+                <Text style={styles.attemptedButtonTitle}>Mark as Attempted</Text>
+                <Text style={styles.attemptedButtonSubtitle}>I tried but couldn't complete</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.keepPendingButton}
+              onPress={handleKeepPending}
+            >
+              <Ionicons name="hourglass-outline" size={24} color="#F59E0B" />
+              <View style={styles.attemptedTextContainer}>
+                <Text style={styles.keepPendingTitle}>Keep in Pending</Text>
+                <Text style={styles.keepPendingSubtitle}>I'll do it later today</Text>
+              </View>
             </TouchableOpacity>
           </View>
+
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => setScreen('completion')}
+          >
+            <Ionicons name="arrow-back" size={20} color="#A0A0A0" />
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -379,5 +558,160 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 12,
     letterSpacing: 2,
+  },
+  // Completion Screen Styles
+  questionIconContainer: {
+    marginBottom: 24,
+  },
+  questionTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  taskNameDisplay: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#F59E0B',
+    textAlign: 'center',
+    marginBottom: 40,
+    paddingHorizontal: 20,
+  },
+  completionButtons: {
+    width: '100%',
+    gap: 16,
+    maxWidth: 320,
+  },
+  yesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10B981',
+    paddingVertical: 20,
+    borderRadius: 16,
+    gap: 12,
+  },
+  yesButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  noButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EF4444',
+    paddingVertical: 20,
+    borderRadius: 16,
+    gap: 12,
+  },
+  noButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  // Reschedule Screen Styles
+  optionsTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  taskNameSmall: {
+    fontSize: 16,
+    color: '#A0A0A0',
+    textAlign: 'center',
+    marginBottom: 32,
+  },
+  optionsContainer: {
+    width: '100%',
+    maxWidth: 340,
+  },
+  optionSectionTitle: {
+    fontSize: 14,
+    color: '#707070',
+    textAlign: 'center',
+    letterSpacing: 1,
+    marginBottom: 12,
+    fontWeight: '600',
+  },
+  rescheduleOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'center',
+  },
+  rescheduleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(139, 92, 246, 0.3)',
+    gap: 8,
+  },
+  rescheduleText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  attemptedButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.3)',
+    gap: 12,
+    marginTop: 12,
+  },
+  attemptedTextContainer: {
+    flex: 1,
+  },
+  attemptedButtonTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  attemptedButtonSubtitle: {
+    color: '#707070',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  keepPendingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.3)',
+    gap: 12,
+    marginTop: 12,
+  },
+  keepPendingTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  keepPendingSubtitle: {
+    color: '#707070',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 32,
+    gap: 8,
+  },
+  backButtonText: {
+    color: '#A0A0A0',
+    fontSize: 16,
   },
 });
