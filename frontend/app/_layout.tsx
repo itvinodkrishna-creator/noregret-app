@@ -316,6 +316,7 @@ function TabLayout() {
         onMarkAttempted={handleMarkAttempted}
         onReschedule={handleReschedule}
         onKeepPending={handleKeepPending}
+        onAutoStop={handleAutoStop}
       />
     </>
   );
