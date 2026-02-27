@@ -155,6 +155,7 @@ export default function TasksScreen() {
       reminderEnabled,
       ringtone: selectedRingtone,
       notificationId: alarmId,
+      voiceReadingEnabled,
     });
 
     resetForm();
