@@ -99,9 +99,21 @@ export default function TasksScreen() {
     }
   };
 
-  const filteredTasks = tasks
-    .filter(task => filter === 'all' || task.category === filter)
-    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+  // Get tasks based on current tab
+  const getTasksForTab = () => {
+    if (statusTab === 'pending') {
+      return getPendingTasks();
+    } else {
+      return getCompletedTasks();
+    }
+  };
+
+  const filteredTasks = getTasksForTab()
+    .filter(task => filter === 'all' || task.category === filter);
+
+  // Count for badges
+  const pendingCount = getPendingTasks().length;
+  const completedCount = getCompletedTasks().length;
 
   const resetForm = () => {
     setTitle('');
