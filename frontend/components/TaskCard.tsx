@@ -14,12 +14,26 @@ interface TaskCardProps {
 
 export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, onComplete, onLongPress }) => {
   const { theme } = useTheme();
-  const isCompleted = task.status === 'completed';
+  const isCompleted = task.status === 'done';
+  const isAttempted = task.status === 'attempted';
+  const isMissed = task.status === 'missed';
   const time = format(parseISO(task.time), 'h:mm a');
+  const alarmTriggered = task.alarmTriggered;
   
   // Get category config
   const categoryConfig = CATEGORY_CONFIG[task.category] || CATEGORY_CONFIG.Personal;
   const categoryColor = categoryConfig.color;
+
+  // Status icon and color
+  const getStatusIcon = () => {
+    if (isCompleted) return { icon: 'checkmark-circle', color: '#10B981' };
+    if (isAttempted) return { icon: 'checkmark-done', color: '#3B82F6' };
+    if (isMissed) return { icon: 'close-circle', color: '#EF4444' };
+    if (alarmTriggered) return { icon: 'alarm', color: '#F59E0B' };
+    return null;
+  };
+
+  const statusIndicator = getStatusIcon();
 
   return (
     <TouchableOpacity 
@@ -29,7 +43,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, onComplete, o
           backgroundColor: theme.card, 
           borderColor: categoryColor,
           borderLeftWidth: 4,
-          opacity: isCompleted ? 0.6 : 1,
+          opacity: isCompleted || isMissed ? 0.6 : 1,
         }
       ]}
       onPress={onPress}
@@ -42,13 +56,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, onComplete, o
           style={[
             styles.checkbox, 
             { 
-              borderColor: categoryColor,
-              backgroundColor: isCompleted ? categoryColor : 'transparent',
+              borderColor: statusIndicator?.color || categoryColor,
+              backgroundColor: isCompleted || isAttempted ? statusIndicator?.color : 'transparent',
             }
           ]}
           onPress={onComplete}
         >
-          {isCompleted && (
+          {(isCompleted || isAttempted) && (
             <Ionicons name="checkmark" size={16} color="#FFFFFF" />
           )}
         </TouchableOpacity>
@@ -59,7 +73,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, onComplete, o
               styles.title, 
               { 
                 color: theme.text,
-                textDecorationLine: isCompleted ? 'line-through' : 'none'
+                textDecorationLine: isCompleted || isMissed ? 'line-through' : 'none'
               }
             ]}
             numberOfLines={1}
@@ -81,13 +95,31 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onPress, onComplete, o
               <Ionicons name="time-outline" size={12} color={theme.textSecondary} />
               <Text style={[styles.time, { color: theme.textSecondary }]}>{time}</Text>
             </View>
+            {/* Show alarm triggered indicator */}
+            {alarmTriggered && !isCompleted && !isAttempted && !isMissed && (
+              <View style={[styles.alarmTriggeredBadge, { backgroundColor: '#F59E0B20' }]}>
+                <Ionicons name="alarm" size={12} color="#F59E0B" />
+                <Text style={[styles.alarmTriggeredText, { color: '#F59E0B' }]}>Rang</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
       
       <View style={styles.rightSection}>
-        {task.reminderEnabled && (
+        {/* Status indicator */}
+        {statusIndicator && (
+          <Ionicons 
+            name={statusIndicator.icon as any} 
+            size={18} 
+            color={statusIndicator.color} 
+          />
+        )}
+        {task.reminderEnabled && !statusIndicator && (
           <Ionicons name="notifications" size={16} color={categoryColor} />
+        )}
+        {task.voiceReadingEnabled && (
+          <Ionicons name="mic" size={14} color="#10B981" />
         )}
         <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
       </View>
