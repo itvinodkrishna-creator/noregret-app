@@ -185,6 +185,7 @@ export default function TasksScreen() {
       ringtone: selectedRingtone,
       notificationId: alarmId,
       voiceReadingEnabled,
+      voiceUri: taskVoiceUri || undefined,
     });
 
     resetForm();
