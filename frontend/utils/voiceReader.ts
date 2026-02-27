@@ -1,57 +1,50 @@
 /**
  * Voice Reading utility for Noregret app
- * Uses Web Speech API for text-to-speech
+ * Uses expo-speech for cross-platform text-to-speech
  */
 
 import { Platform } from 'react-native';
+import * as Speech from 'expo-speech';
 
-let speechSynthesis: SpeechSynthesis | null = null;
-let currentUtterance: SpeechSynthesisUtterance | null = null;
 let isReading = false;
 let readingInterval: NodeJS.Timeout | null = null;
+let stopTime: number | null = null;
+const MAX_READING_TIME = 5 * 60 * 1000; // 5 minutes max
 
 /**
- * Initialize speech synthesis
+ * Initialize speech (no-op for expo-speech)
  */
 export function initVoiceReader() {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    speechSynthesis = window.speechSynthesis;
-    console.log('🗣️ Voice reader initialized');
-  }
+  console.log('🗣️ Voice reader initialized (expo-speech)');
 }
 
 /**
  * Speak text once
  */
-export function speakText(text: string, rate: number = 1.0): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (Platform.OS !== 'web' || !speechSynthesis) {
-      console.log('⚠️ Speech synthesis not available');
-      resolve();
-      return;
-    }
-
+export async function speakText(text: string, rate: number = 1.0): Promise<void> {
+  return new Promise(async (resolve) => {
     try {
-      // Cancel any ongoing speech
-      speechSynthesis.cancel();
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = rate;
-      utterance.pitch = 1.0;
-      utterance.volume = 1.0;
-      utterance.lang = 'en-US';
-
-      utterance.onend = () => {
-        resolve();
-      };
-
-      utterance.onerror = (event) => {
-        console.error('Speech error:', event);
-        resolve(); // Resolve anyway to not block
-      };
-
-      currentUtterance = utterance;
-      speechSynthesis.speak(utterance);
+      // Check if speech is available
+      const isAvailable = await Speech.isSpeakingAsync().catch(() => false);
+      
+      // Stop any ongoing speech
+      await Speech.stop();
+      
+      // Speak the text
+      Speech.speak(text, {
+        language: 'en-US',
+        pitch: 1.0,
+        rate: rate,
+        volume: 1.0,
+        onDone: () => {
+          resolve();
+        },
+        onError: (error) => {
+          console.error('Speech error:', error);
+          resolve();
+        },
+      });
+      
       console.log('🗣️ Speaking:', text);
     } catch (error) {
       console.error('Voice reader error:', error);
@@ -61,22 +54,25 @@ export function speakText(text: string, rate: number = 1.0): Promise<void> {
 }
 
 /**
- * Start repeating voice reading until stopped
+ * Start repeating voice reading until stopped (max 5 minutes)
  */
-export function startRepeatingVoice(text: string, intervalMs: number = 5000) {
-  if (Platform.OS !== 'web' || !speechSynthesis) {
-    console.log('⚠️ Speech synthesis not available');
-    return;
-  }
-
+export function startRepeatingVoice(text: string, intervalMs: number = 8000) {
   isReading = true;
-  console.log('🔁 Starting repeated voice reading');
+  stopTime = Date.now() + MAX_READING_TIME;
+  console.log('🔁 Starting repeated voice reading (max 5 min)');
 
   // Speak immediately
   speakText(text);
 
   // Set up interval to repeat
   readingInterval = setInterval(() => {
+    // Check if we've exceeded max time
+    if (stopTime && Date.now() > stopTime) {
+      console.log('⏰ Voice reading auto-stopped after 5 minutes');
+      stopVoiceReading();
+      return;
+    }
+    
     if (isReading) {
       speakText(text);
     }
@@ -86,19 +82,21 @@ export function startRepeatingVoice(text: string, intervalMs: number = 5000) {
 /**
  * Stop voice reading
  */
-export function stopVoiceReading() {
+export async function stopVoiceReading() {
   isReading = false;
+  stopTime = null;
 
   if (readingInterval) {
     clearInterval(readingInterval);
     readingInterval = null;
   }
 
-  if (Platform.OS === 'web' && speechSynthesis) {
-    speechSynthesis.cancel();
+  try {
+    await Speech.stop();
+  } catch (error) {
+    // Ignore errors
   }
 
-  currentUtterance = null;
   console.log('🛑 Voice reading stopped');
 }
 
@@ -113,8 +111,22 @@ export function isVoiceReading(): boolean {
  * Check if speech synthesis is supported
  */
 export function isSpeechSupported(): boolean {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    return 'speechSynthesis' in window;
+  return true; // expo-speech works on all platforms
+}
+
+/**
+ * Preview speak (for testing ringtone selection)
+ */
+export async function previewSpeak(text: string): Promise<void> {
+  try {
+    await Speech.stop();
+    Speech.speak(text, {
+      language: 'en-US',
+      pitch: 1.0,
+      rate: 1.0,
+      volume: 1.0,
+    });
+  } catch (error) {
+    console.error('Preview speak error:', error);
   }
-  return false;
 }

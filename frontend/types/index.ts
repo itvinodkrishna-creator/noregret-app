@@ -12,6 +12,7 @@ export interface Task {
   notificationId?: string;
   ringtone?: string;
   voiceReadingEnabled?: boolean;
+  alarmTriggered?: boolean; // Track if alarm has triggered for this task
 }
 
 // Status configuration for display
@@ -24,7 +25,7 @@ export const STATUS_CONFIG = {
   done: {
     color: '#10B981', // Green
     icon: 'checkmark-circle',
-    label: 'Done',
+    label: 'Completed',
   },
   attempted: {
     color: '#3B82F6', // Blue
