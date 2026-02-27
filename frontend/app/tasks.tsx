@@ -483,6 +483,9 @@ export default function TasksScreen() {
 
           {showRingtonePicker && (
             <View style={[styles.ringtoneList, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <Text style={[styles.ringtoneListHint, { color: theme.textSecondary }]}>
+                Tap to preview and select
+              </Text>
               <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
                 {allRingtones.map((ringtone, index) => (
                   <TouchableOpacity
@@ -492,16 +495,30 @@ export default function TasksScreen() {
                       selectedRingtone === ringtone.id && { backgroundColor: theme.primary + '20' },
                       index < allRingtones.length - 1 && { borderBottomWidth: 1, borderBottomColor: theme.border },
                     ]}
-                    onPress={() => {
+                    onPress={async () => {
                       playClickSound(preferences.soundEnabled);
+                      // Preview the ringtone immediately
+                      await previewRingtone(ringtone.id);
                       setSelectedRingtone(ringtone.id);
-                      setShowRingtonePicker(false);
                     }}
                   >
-                    <Text style={[styles.ringtoneText, { color: theme.text }]}>{ringtone.label}</Text>
-                    {selectedRingtone === ringtone.id && (
-                      <Ionicons name="checkmark" size={20} color={theme.primary} />
-                    )}
+                    <View style={styles.ringtoneItemContent}>
+                      <Ionicons 
+                        name={selectedRingtone === ringtone.id ? "radio-button-on" : "radio-button-off"} 
+                        size={20} 
+                        color={selectedRingtone === ringtone.id ? theme.primary : theme.textSecondary} 
+                      />
+                      <Text style={[styles.ringtoneText, { color: theme.text }]}>{ringtone.label}</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={async (e) => {
+                        e.stopPropagation?.();
+                        await previewRingtone(ringtone.id);
+                      }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="play-circle" size={24} color={theme.primary} />
+                    </TouchableOpacity>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -511,6 +528,15 @@ export default function TasksScreen() {
               >
                 <Ionicons name="cloud-upload" size={20} color={theme.primary} />
                 <Text style={[styles.uploadButtonText, { color: theme.primary }]}>Upload Custom Audio</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.doneButton, { backgroundColor: theme.primary }]}
+                onPress={async () => {
+                  await stopRingtonePreview();
+                  setShowRingtonePicker(false);
+                }}
+              >
+                <Text style={styles.doneButtonText}>Done</Text>
               </TouchableOpacity>
             </View>
           )}
