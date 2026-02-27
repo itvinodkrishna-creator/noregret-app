@@ -8,7 +8,8 @@ import { AlarmModal } from '../components/AlarmModal';
 import { 
   setAlarmTriggerCallback, 
   snoozeAlarm as snoozeAlarmScheduler,
-  cancelAlarmsForTask 
+  cancelAlarmsForTask,
+  scheduleAlarm 
 } from '../utils/alarmScheduler';
 import { 
   playAlarmSound, 
