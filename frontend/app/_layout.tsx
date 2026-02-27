@@ -50,6 +50,7 @@ function TabLayout() {
   useEffect(() => {
     loadData();
     initClickSound();
+    initVoiceReader();
   }, []);
 
   // Setup alarm trigger callback ONCE on mount
