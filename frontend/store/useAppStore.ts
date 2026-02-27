@@ -147,6 +147,50 @@ export const useAppStore = create<AppState>()((set, get) => ({
         await get().updateStats();
       },
       
+      markTaskAsDone: async (taskId) => {
+        const completedAt = new Date().toISOString();
+        await storage.updateTask(taskId, { status: 'done', completedAt });
+        set(state => ({
+          tasks: state.tasks.map(task => 
+            task._id === taskId ? { ...task, status: 'done', completedAt } : task
+          )
+        }));
+        await get().updateStats();
+      },
+      
+      markTaskAsAttempted: async (taskId) => {
+        const completedAt = new Date().toISOString();
+        await storage.updateTask(taskId, { status: 'attempted', completedAt });
+        set(state => ({
+          tasks: state.tasks.map(task => 
+            task._id === taskId ? { ...task, status: 'attempted', completedAt } : task
+          )
+        }));
+        await get().updateStats();
+      },
+      
+      markTaskAsMissed: async (taskId) => {
+        await storage.updateTask(taskId, { status: 'missed' });
+        set(state => ({
+          tasks: state.tasks.map(task => 
+            task._id === taskId ? { ...task, status: 'missed' } : task
+          )
+        }));
+      },
+      
+      rescheduleTask: async (taskId, newTime) => {
+        await storage.updateTask(taskId, { 
+          time: newTime.toISOString(), 
+          status: 'pending',
+          snoozedUntil: undefined 
+        });
+        set(state => ({
+          tasks: state.tasks.map(task => 
+            task._id === taskId ? { ...task, time: newTime.toISOString(), status: 'pending', snoozedUntil: undefined } : task
+          )
+        }));
+      },
+      
       snoozeTask: async (taskId, minutes) => {
         const snoozedUntil = new Date(Date.now() + minutes * 60 * 1000).toISOString();
         await storage.updateTask(taskId, { status: 'snoozed', snoozedUntil });
@@ -155,6 +199,26 @@ export const useAppStore = create<AppState>()((set, get) => ({
             task._id === taskId ? { ...task, status: 'snoozed', snoozedUntil } : task
           )
         }));
+      },
+      
+      checkMissedTasks: async () => {
+        const now = new Date();
+        const { tasks } = get();
+        
+        // Find pending tasks that are past their time (with 5 minute grace period)
+        const missedTasks = tasks.filter(task => {
+          if (task.status !== 'pending') return false;
+          const taskTime = new Date(task.time);
+          const gracePeriod = 5 * 60 * 1000; // 5 minutes
+          return now.getTime() > taskTime.getTime() + gracePeriod;
+        });
+        
+        // Mark them as missed
+        for (const task of missedTasks) {
+          if (task._id) {
+            await get().markTaskAsMissed(task._id);
+          }
+        }
       },
       
       // Draft management
