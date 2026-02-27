@@ -410,4 +410,17 @@ export const useAppStore = create<AppState>()(
       getTasksByCategory: (category: string) => {
         return get().tasks.filter(task => task.category === category);
       },
-    }));
+    }),
+    {
+      name: 'noregret-app-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        tasks: state.tasks,
+        foodPlans: state.foodPlans,
+        preferences: state.preferences,
+        stats: state.stats,
+        draftTask: state.draftTask,
+      }),
+    }
+  )
+);
