@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Task, FoodPlan, UserPreferences, UserStats } from '../types';
 import * as storage from '../utils/storage';
 import { format, parseISO, differenceInDays } from 'date-fns';
