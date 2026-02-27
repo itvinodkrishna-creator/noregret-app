@@ -111,6 +111,7 @@ export default function TasksScreen() {
     setReminderEnabled(true);
     setSelectedRingtone('default');
     setShowRingtonePicker(false);
+    setVoiceReadingEnabled(false);
   };
 
   const handleAddTask = async () => {
