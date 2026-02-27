@@ -997,13 +997,28 @@ const styles = StyleSheet.create({
   reminderLabel: { flexDirection: 'row', alignItems: 'center' },
   reminderText: { fontSize: 16, fontWeight: '600', marginLeft: 8 },
   ringtoneList: { borderWidth: 1, borderRadius: 12, marginTop: 8, overflow: 'hidden' },
+  ringtoneListHint: { fontSize: 12, textAlign: 'center', paddingVertical: 8, fontStyle: 'italic' },
   ringtoneItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 14,
   },
+  ringtoneItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
   ringtoneText: { fontSize: 15 },
+  doneButton: {
+    padding: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  doneButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
   uploadButton: {
     flexDirection: 'row',
     alignItems: 'center',
