@@ -176,6 +176,7 @@ export default function TasksScreen() {
       description: description.trim(),
       time: taskDateTime.toISOString(),
       category: selectedCategory,
+      status: 'pending',
       reminderEnabled,
       ringtone: selectedRingtone,
       notificationId: alarmId,
