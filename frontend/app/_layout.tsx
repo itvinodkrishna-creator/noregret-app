@@ -38,7 +38,7 @@ interface AlarmState {
 
 function TabLayout() {
   const { theme } = useTheme();
-  const { tasks, completeTask, updateTask, loadData, preferences } = useAppStore();
+  const { tasks, completeTask, updateTask, loadData, preferences, markTaskAsDone, markTaskAsAttempted, rescheduleTask, checkMissedTasks } = useAppStore();
   
   // Use useRef to keep alarm state stable across re-renders
   const [alarmState, setAlarmState] = useState<AlarmState | null>(null);
