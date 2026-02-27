@@ -35,6 +35,7 @@ interface AlarmState {
   description?: string;
   soundUrl: string;
   voiceReadingEnabled: boolean;
+  voiceUri?: string; // Recorded voice URI to play
 }
 
 function TabLayout() {
