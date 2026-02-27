@@ -87,6 +87,9 @@ function TabLayout() {
       // Play alarm sound with the selected ringtone
       playAlarmSound(alarm.soundUrl);
       
+      // Mark task as alarm triggered (shows check mark icon)
+      useAppStore.getState().markTaskAlarmTriggered(alarm.taskId);
+      
       // Update state to show modal
       alarmStateRef.current = newState;
       setAlarmState(newState);
