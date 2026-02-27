@@ -208,6 +208,7 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
 
   const handleAutoStop = () => {
     stopVoiceReading();
+    stopRecordedVoice();
     Vibration.cancel();
     if (onAutoStop) {
       onAutoStop();
@@ -218,6 +219,7 @@ export const AlarmModal: React.FC<AlarmModalProps> = ({
 
   const handleStop = () => {
     stopVoiceReading();
+    stopRecordedVoice();
     Vibration.cancel();
     // Clear auto-stop timer
     if (autoStopTimerRef.current) {
