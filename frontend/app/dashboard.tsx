@@ -389,6 +389,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
   },
   welcomeText: {
     fontSize: 11,
