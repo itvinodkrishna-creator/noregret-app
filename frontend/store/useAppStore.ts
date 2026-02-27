@@ -279,7 +279,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
           return taskDate === today;
         });
         
-        const completedToday = todayTasks.filter(task => task.status === 'completed').length;
+        const completedToday = todayTasks.filter(task => task.status === 'done').length;
         const completionRate = todayTasks.length > 0 ? completedToday / todayTasks.length : 0;
         
         // Update completion rates

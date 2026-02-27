@@ -28,7 +28,7 @@ export const SwipeableTaskCard: React.FC<SwipeableTaskCardProps> = ({
   onEditDate,
 }) => {
   const { theme } = useTheme();
-  const isCompleted = task.status === 'completed';
+  const isCompleted = task.status === 'done';
   const time = format(parseISO(task.time), 'h:mm a');
   const date = format(parseISO(task.time), 'MMM dd');
   

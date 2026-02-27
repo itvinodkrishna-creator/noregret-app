@@ -24,7 +24,7 @@ export default function StatsScreen() {
       const taskDate = format(parseISO(task.time), 'yyyy-MM-dd');
       return taskDate === date;
     });
-    const completed = dateTasks.filter(t => t.status === 'completed').length;
+    const completed = dateTasks.filter(t => t.status === 'done').length;
     const total = dateTasks.length;
     return {
       date,
@@ -41,7 +41,7 @@ export default function StatsScreen() {
 
   // Calculate category breakdown
   const categoryStats = tasks.reduce((acc, task) => {
-    if (task.status === 'completed') {
+    if (task.status === 'done') {
       acc[task.category] = (acc[task.category] || 0) + 1;
     }
     return acc;

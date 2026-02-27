@@ -29,7 +29,7 @@ export const TaskCardWithActions: React.FC<TaskCardProps> = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   
-  const isCompleted = task.status === 'completed';
+  const isCompleted = task.status === 'done';
   const taskDate = parseISO(task.time);
   const time = format(taskDate, 'h:mm a');
   const date = format(taskDate, 'MMM dd');
