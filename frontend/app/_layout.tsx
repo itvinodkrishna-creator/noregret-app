@@ -71,21 +71,28 @@ function TabLayout() {
       console.log(`   Task: ${alarm.title}`);
       console.log(`   ID: ${alarm.taskId}`);
       
-      // Find the task to get voice reading setting
+      // Find the task to get voice reading setting and recorded voice
       const task = useAppStore.getState().tasks.find(t => t._id === alarm.taskId);
       const voiceEnabled = task?.voiceReadingEnabled || useAppStore.getState().preferences.voiceReadingEnabled || false;
+      const voiceUri = task?.voiceUri; // Recorded voice message
       
       const newState: AlarmState = {
         visible: true,
         taskId: alarm.taskId,
         title: alarm.title,
         description: alarm.description,
-        soundUrl: alarm.soundUrl,
-        voiceReadingEnabled: voiceEnabled,
+        soundUrl: voiceUri || alarm.soundUrl, // Use recorded voice if available, else ringtone
+        voiceReadingEnabled: voiceEnabled && !voiceUri, // Disable TTS if we have a recorded voice
       };
       
-      // Play alarm sound with the selected ringtone
-      playAlarmSound(alarm.soundUrl);
+      // Play alarm sound with the selected ringtone OR the recorded voice
+      if (voiceUri) {
+        console.log('🎤 Playing recorded voice message:', voiceUri);
+        playAlarmSound(voiceUri);
+      } else {
+        console.log('🔊 Playing ringtone:', alarm.soundUrl);
+        playAlarmSound(alarm.soundUrl);
+      }
       
       // Mark task as alarm triggered (shows check mark icon)
       useAppStore.getState().markTaskAlarmTriggered(alarm.taskId);
@@ -95,7 +102,8 @@ function TabLayout() {
       setAlarmState(newState);
       
       console.log('✅ Alarm modal should now be VISIBLE');
-      console.log(`   Voice reading: ${voiceEnabled ? 'ON' : 'OFF'}`);
+      console.log(`   Voice recording: ${voiceUri ? 'YES' : 'NO'}`);
+      console.log(`   Voice reading (TTS): ${voiceEnabled && !voiceUri ? 'ON' : 'OFF'}`);
     });
     
     console.log('✅ Noregret alarm system initialized');
