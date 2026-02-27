@@ -4,7 +4,7 @@ export interface Task {
   description?: string;
   time: string;
   category: 'Work' | 'Health' | 'Food' | 'Personal';
-  status: 'pending' | 'done' | 'attempted' | 'missed' | 'snoozed';
+  status: 'pending' | 'done' | 'attempted' | 'missed' | 'snoozed' | 'rescheduled';
   reminderEnabled: boolean;
   createdAt: string;
   completedAt?: string;
@@ -40,6 +40,11 @@ export const STATUS_CONFIG = {
     color: '#8B5CF6', // Purple
     icon: 'alarm',
     label: 'Snoozed',
+  },
+  rescheduled: {
+    color: '#06B6D4', // Cyan
+    icon: 'calendar-outline',
+    label: 'Rescheduled',
   },
 } as const;
 
