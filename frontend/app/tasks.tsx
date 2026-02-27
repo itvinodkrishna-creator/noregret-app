@@ -1215,4 +1215,35 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
+  // Voice title input styles
+  titleInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  titleInput: {
+    flex: 1,
+  },
+  voiceTitleButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  voiceAttachedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    gap: 8,
+    borderWidth: 1,
+  },
+  voiceAttachedText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#10B981',
+  },
 });
