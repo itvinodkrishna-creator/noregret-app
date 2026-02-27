@@ -525,13 +525,25 @@ export default function TasksScreen() {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-              <TouchableOpacity
-                style={[styles.uploadButton, { borderTopWidth: 2, borderTopColor: theme.border }]}
-                onPress={pickAudioFile}
-              >
-                <Ionicons name="cloud-upload" size={20} color={theme.primary} />
-                <Text style={[styles.uploadButtonText, { color: theme.primary }]}>Upload Custom Audio</Text>
-              </TouchableOpacity>
+              <View style={styles.ringtoneActionsRow}>
+                <TouchableOpacity
+                  style={[styles.uploadButton, { flex: 1 }]}
+                  onPress={pickAudioFile}
+                >
+                  <Ionicons name="cloud-upload" size={20} color={theme.primary} />
+                  <Text style={[styles.uploadButtonText, { color: theme.primary }]}>Upload</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.recordVoiceButton, { flex: 1 }]}
+                  onPress={() => {
+                    setShowRingtonePicker(false);
+                    setShowVoiceRecorder(true);
+                  }}
+                >
+                  <Ionicons name="mic" size={20} color="#EF4444" />
+                  <Text style={[styles.recordVoiceButtonText, { color: '#EF4444' }]}>Record Voice</Text>
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity
                 style={[styles.doneButton, { backgroundColor: theme.primary }]}
                 onPress={async () => {
