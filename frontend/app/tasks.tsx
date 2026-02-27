@@ -1056,7 +1056,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 14,
   },
-  uploadButtonText: { fontSize: 15, fontWeight: '600', marginLeft: 8 },
+  uploadButtonText: { fontSize: 14, fontWeight: '600', marginLeft: 6 },
+  ringtoneActionsRow: {
+    flexDirection: 'row',
+    borderTopWidth: 2,
+    borderTopColor: '#333',
+  },
+  recordVoiceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    borderLeftWidth: 1,
+    borderLeftColor: '#333',
+  },
+  recordVoiceButtonText: { fontSize: 14, fontWeight: '600', marginLeft: 6 },
   modalActions: { flexDirection: 'row', marginTop: 20, gap: 12 },
   deleteButtonModal: {
     width: 50,
