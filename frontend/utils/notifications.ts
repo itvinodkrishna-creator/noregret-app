@@ -200,3 +200,60 @@ export async function requestExactAlarmPermission() {
   }
   return true;
 }
+
+/**
+ * Schedule a native notification that will play even when app is closed
+ * This is the key function for background alarms
+ */
+export async function scheduleBackgroundAlarm(
+  taskId: string,
+  title: string,
+  body: string,
+  triggerDate: Date,
+  soundUrl: string = 'default'
+): Promise<string | null> {
+  try {
+    const now = new Date();
+    const seconds = Math.max(1, Math.floor((triggerDate.getTime() - now.getTime()) / 1000));
+    
+    console.log('📱 Scheduling native background alarm:');
+    console.log(`   Task: ${title}`);
+    console.log(`   Trigger in: ${seconds} seconds`);
+    console.log(`   Trigger time: ${triggerDate.toLocaleTimeString()}`);
+    
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '🔔 ' + title,
+        body: body || 'Time for your task!',
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+        vibrate: [0, 500, 250, 500, 250, 500],
+        data: {
+          taskId,
+          type: 'alarm',
+          soundUrl,
+        },
+        categoryIdentifier: 'alarm',
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds,
+        channelId: 'critical_alarm',
+      },
+    });
+    
+    console.log('✅ Native notification scheduled:', notificationId);
+    return notificationId;
+  } catch (error) {
+    console.error('❌ Error scheduling native notification:', error);
+    return null;
+  }
+}
+
+/**
+ * Get the current sound URL for a ringtone ID
+ */
+export function getRingtoneSoundUrl(ringtoneId: string): string {
+  return BUILT_IN_SOUNDS[ringtoneId] || BUILT_IN_SOUNDS.default;
+}
+
