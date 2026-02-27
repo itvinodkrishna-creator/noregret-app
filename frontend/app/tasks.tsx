@@ -919,6 +919,16 @@ export default function TasksScreen() {
           showToast('Voice recording saved!', 'success');
         }}
       />
+
+      {/* Voice Recorder Modal for Task Title */}
+      <VoiceRecorder
+        visible={isRecordingTitle}
+        onClose={() => setIsRecordingTitle(false)}
+        onSave={(recordingUri, recordingName) => {
+          setTaskVoiceUri(recordingUri);
+          showToast('Voice message attached! It will play at alarm time.', 'success');
+        }}
+      />
     </View>
   );
 }
