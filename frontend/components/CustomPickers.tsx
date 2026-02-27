@@ -524,6 +524,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  minuteScrollContainer: {
+    maxHeight: 150,
+    marginBottom: 16,
+  },
+  minuteCell: {
+    width: '11%',
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    margin: 2,
+  },
+  minuteCellText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
   actions: {
     flexDirection: 'row',
     gap: 12,
