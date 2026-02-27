@@ -6,6 +6,7 @@ import { useAppStore } from '../store/useAppStore';
 import { TaskCardWithActions } from '../components/TaskCardWithActions';
 import { Toast } from '../components/Toast';
 import { DatePickerModal, TimePickerModal } from '../components/CustomPickers';
+import { VoiceRecorder } from '../components/VoiceRecorder';
 import { Task, CATEGORY_CONFIG, CategoryType, STATUS_CONFIG } from '../types';
 import { format, startOfToday, parseISO } from 'date-fns';
 import * as DocumentPicker from 'expo-document-picker';
