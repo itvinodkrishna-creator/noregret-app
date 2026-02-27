@@ -2,12 +2,13 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
-// Configure notification to show and play sound
+// Configure notification to show and play sound even when app is closed
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
+    priority: Notifications.AndroidNotificationPriority.MAX,
   }),
 });
 
@@ -25,11 +26,26 @@ const BUILT_IN_SOUNDS: { [key: string]: string } = {
 
 export async function registerForPushNotificationsAsync() {
   if (Platform.OS === 'android') {
+    // Create a high-priority alarm channel for Android
     await Notifications.setNotificationChannelAsync('alarm', {
       name: 'Task Alarms',
       importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
+      vibrationPattern: [0, 500, 250, 500, 250, 500],
       lightColor: '#FF231F7C',
+      sound: 'default',
+      enableVibrate: true,
+      enableLights: true,
+      bypassDnd: true,
+      showBadge: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+    
+    // Create a secondary channel for critical alarms
+    await Notifications.setNotificationChannelAsync('critical_alarm', {
+      name: 'Critical Alarms',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 1000, 500, 1000, 500, 1000],
+      lightColor: '#FF0000',
       sound: 'default',
       enableVibrate: true,
       enableLights: true,
