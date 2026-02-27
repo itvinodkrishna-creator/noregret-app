@@ -54,14 +54,10 @@
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#ffffff",
-          "sounds": [
-            "./assets/sounds/notification.mp3"
-          ]
+          "color": "#ffffff"
         }
       ],
-      "expo-audio",
-      "expo-asset"
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true
