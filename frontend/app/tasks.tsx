@@ -101,10 +101,17 @@ export default function TasksScreen() {
 
   // Get tasks based on current tab
   const getTasksForTab = () => {
-    if (statusTab === 'pending') {
-      return getPendingTasks();
-    } else {
-      return getCompletedTasks();
+    switch (statusTab) {
+      case 'pending':
+        return getPendingTasks();
+      case 'completed':
+        return getCompletedTasks();
+      case 'attempted':
+        return getAttemptedTasks();
+      case 'missed':
+        return getMissedTasks();
+      default:
+        return getPendingTasks();
     }
   };
 
