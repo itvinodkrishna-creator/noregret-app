@@ -129,10 +129,10 @@ export const useAppStore = create<AppState>()((set, get) => ({
       
       completeTask: async (taskId) => {
         const completedAt = new Date().toISOString();
-        await storage.updateTask(taskId, { status: 'completed', completedAt });
+        await storage.updateTask(taskId, { status: 'done', completedAt });
         set(state => ({
           tasks: state.tasks.map(task => 
-            task._id === taskId ? { ...task, status: 'completed', completedAt } : task
+            task._id === taskId ? { ...task, status: 'done', completedAt } : task
           )
         }));
         
