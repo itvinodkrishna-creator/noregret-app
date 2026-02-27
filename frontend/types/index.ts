@@ -4,7 +4,7 @@ export interface Task {
   description?: string;
   time: string;
   category: 'Work' | 'Health' | 'Food' | 'Personal';
-  status: 'pending' | 'completed' | 'snoozed';
+  status: 'pending' | 'done' | 'attempted' | 'missed' | 'snoozed';
   reminderEnabled: boolean;
   createdAt: string;
   completedAt?: string;
@@ -13,6 +13,37 @@ export interface Task {
   ringtone?: string;
   voiceReadingEnabled?: boolean;
 }
+
+// Status configuration for display
+export const STATUS_CONFIG = {
+  pending: {
+    color: '#F59E0B', // Amber
+    icon: 'time-outline',
+    label: 'Pending',
+  },
+  done: {
+    color: '#10B981', // Green
+    icon: 'checkmark-circle',
+    label: 'Done',
+  },
+  attempted: {
+    color: '#3B82F6', // Blue
+    icon: 'checkmark-done',
+    label: 'Attempted',
+  },
+  missed: {
+    color: '#EF4444', // Red
+    icon: 'close-circle',
+    label: 'Missed',
+  },
+  snoozed: {
+    color: '#8B5CF6', // Purple
+    icon: 'alarm',
+    label: 'Snoozed',
+  },
+} as const;
+
+export type TaskStatus = keyof typeof STATUS_CONFIG;
 
 export interface FoodPlan {
   _id?: string;
