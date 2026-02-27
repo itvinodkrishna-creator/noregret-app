@@ -11,6 +11,7 @@ export interface Task {
   snoozedUntil?: string;
   notificationId?: string;
   ringtone?: string;
+  voiceReadingEnabled?: boolean;
 }
 
 export interface FoodPlan {
