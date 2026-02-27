@@ -11,11 +11,11 @@ import { format, startOfToday, parseISO } from 'date-fns';
 import * as DocumentPicker from 'expo-document-picker';
 import { registerForPushNotificationsAsync } from '../utils/notifications';
 import { scheduleAlarm, cancelAlarmsForTask } from '../utils/alarmScheduler';
-import { RINGTONES, playClickSound } from '../utils/sounds';
+import { RINGTONES, playClickSound, previewRingtone, stopRingtonePreview, getRingtoneLabel } from '../utils/sounds';
 
 const categories: CategoryType[] = ['Work', 'Health', 'Food', 'Personal'];
 
-type StatusTab = 'pending' | 'completed';
+type StatusTab = 'pending' | 'completed' | 'attempted' | 'missed';
 
 export default function TasksScreen() {
   const { theme } = useTheme();
