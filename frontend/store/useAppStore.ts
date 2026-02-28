@@ -55,6 +55,8 @@ interface AppState {
   reorderTodoItems: (items: TodoItem[]) => void;
   getWaitingTodos: () => TodoItem[];
   getDoneTodos: () => TodoItem[];
+  addTodoComment: (todoId: string, text: string) => void;
+  deleteTodoComment: (todoId: string, commentId: string) => void;
   
   // Food plan actions
   addFoodPlan: (foodPlan: Omit<FoodPlan, '_id' | 'createdAt'>) => Promise<void>;
