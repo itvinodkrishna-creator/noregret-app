@@ -210,7 +210,8 @@ function TabLayout() {
   const handleDismissAlarm = useCallback(async () => {
     console.log('🛑 Alarm dismissed');
     
-    await stopAlarmSound();
+    // Stop alarm sound using the new system
+    await stopSchedulerSound();
     
     const currentAlarm = alarmStateRef.current;
     if (currentAlarm) {
@@ -228,6 +229,9 @@ function TabLayout() {
   const handleMarkDone = useCallback(async () => {
     console.log('✅ Task marked as DONE');
     
+    // Stop sound first
+    await stopSchedulerSound();
+    
     const currentAlarm = alarmStateRef.current;
     if (currentAlarm) {
       await markTaskAsDone(currentAlarm.taskId);
@@ -238,6 +242,9 @@ function TabLayout() {
   // Handle mark as attempted
   const handleMarkAttempted = useCallback(async () => {
     console.log('🔵 Task marked as ATTEMPTED');
+    
+    // Stop sound first
+    await stopSchedulerSound();
     
     const currentAlarm = alarmStateRef.current;
     if (currentAlarm) {
