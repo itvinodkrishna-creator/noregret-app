@@ -421,6 +421,61 @@ export const useAppStore = create<AppState>()(
       getTasksByCategory: (category: string) => {
         return get().tasks.filter(task => task.category === category);
       },
+      
+      // To-Do List actions
+      addTodoItem: (title: string, time?: string) => {
+        const newItem: TodoItem = {
+          _id: `todo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title,
+          time,
+          completed: false,
+          createdAt: new Date().toISOString(),
+          order: get().todoItems.length,
+        };
+        set({ todoItems: [...get().todoItems, newItem] });
+      },
+      
+      toggleTodoItem: (id: string) => {
+        set({
+          todoItems: get().todoItems.map(item =>
+            item._id === id
+              ? {
+                  ...item,
+                  completed: !item.completed,
+                  completedAt: !item.completed ? new Date().toISOString() : undefined,
+                }
+              : item
+          ),
+        });
+      },
+      
+      deleteTodoItem: (id: string) => {
+        set({ todoItems: get().todoItems.filter(item => item._id !== id) });
+      },
+      
+      updateTodoItem: (id: string, updates: Partial<TodoItem>) => {
+        set({
+          todoItems: get().todoItems.map(item =>
+            item._id === id ? { ...item, ...updates } : item
+          ),
+        });
+      },
+      
+      reorderTodoItems: (items: TodoItem[]) => {
+        set({ todoItems: items });
+      },
+      
+      getWaitingTodos: () => {
+        return get().todoItems
+          .filter(item => !item.completed)
+          .sort((a, b) => a.order - b.order);
+      },
+      
+      getDoneTodos: () => {
+        return get().todoItems
+          .filter(item => item.completed)
+          .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''));
+      },
     }),
     {
       name: 'noregret-app-storage',
@@ -428,6 +483,7 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         tasks: state.tasks,
         foodPlans: state.foodPlans,
+        todoItems: state.todoItems,
         preferences: state.preferences,
         stats: state.stats,
         draftTask: state.draftTask,
