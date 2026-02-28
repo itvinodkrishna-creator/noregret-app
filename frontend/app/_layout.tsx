@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
 import { AlarmModal } from '../components/AlarmModal';
@@ -10,7 +11,8 @@ import {
   setAlarmTriggerCallback, 
   snoozeAlarm as snoozeAlarmScheduler,
   cancelAlarmsForTask,
-  scheduleAlarm 
+  scheduleAlarm,
+  initAlarmScheduler 
 } from '../utils/alarmScheduler';
 import { 
   playAlarmSound, 
@@ -20,6 +22,7 @@ import {
 } from '../utils/notifications';
 import { initClickSound } from '../utils/sounds';
 import { initVoiceReader } from '../utils/voiceReader';
+import { initializeAlarmSystem, openAlarmSettings, requestBatteryOptimizationExemption } from '../utils/systemAlarmService';
 
 const TabIcon = ({ name, color, size, focused }: { name: string; color: string; size: number; focused: boolean }) => (
   <View style={[styles.tabIconContainer, focused && styles.tabIconFocused]}>
