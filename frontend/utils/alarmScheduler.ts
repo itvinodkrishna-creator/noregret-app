@@ -1,15 +1,24 @@
 /**
  * Hybrid Alarm Scheduler
  * 
- * This module provides a dual alarm system:
- * 1. In-app timer (setTimeout) - for when app is in foreground
- * 2. System-level notification - for when app is closed/background
+ * Combines:
+ * 1. In-app timer (setTimeout) - For foreground alarm modal
+ * 2. System-level notification - For background/killed app scenarios
  * 
- * The system notification will wake the device and play sound even if app is killed.
+ * The system notification uses full-screen intent to wake the device.
  */
 
 import { Platform } from 'react-native';
-import { scheduleSystemAlarm, cancelSystemAlarm, initializeAlarmSystem } from './systemAlarmService';
+import { 
+  scheduleFullScreenAlarm, 
+  cancelAlarm as cancelSystemAlarm,
+  snoozeAlarm as snoozeSystemAlarm,
+  startAlarmSound,
+  stopAlarmSound,
+  initializeAlarmSystem,
+  getTriggeredAlarm,
+  clearTriggeredAlarm,
+} from './systemAlarmService';
 
 interface ScheduledAlarm {
   id: string;
@@ -20,42 +29,69 @@ interface ScheduledAlarm {
   soundUrl: string;
   voiceUri?: string;
   voiceReadingEnabled?: boolean;
-  timerId?: any; // Use any for cross-platform compatibility
-  systemNotificationId?: string; // ID of the system notification for background
+  timerId?: any;
+  systemNotificationId?: string;
 }
 
-// Store scheduled alarms in memory
+// In-memory alarm storage
 let scheduledAlarms: Map<string, ScheduledAlarm> = new Map();
 
-// Callback for when alarm triggers (in-app)
+// Callback when alarm triggers in-app
 let onAlarmTriggerCallback: ((alarm: ScheduledAlarm) => void) | null = null;
 
-// Track if system is initialized
-let systemInitialized = false;
+// Track initialization
+let isInitialized = false;
 
 /**
- * Initialize the alarm system (call this on app start)
+ * Initialize the alarm scheduler
  */
 export async function initAlarmScheduler(): Promise<void> {
-  if (!systemInitialized) {
+  if (isInitialized) return;
+  
+  console.log('🔧 [SCHEDULER] Initializing hybrid alarm scheduler...');
+  
+  // Initialize system alarm service
+  if (Platform.OS !== 'web') {
     await initializeAlarmSystem();
-    systemInitialized = true;
   }
+  
+  // Check for alarms that triggered while app was closed
+  if (Platform.OS !== 'web') {
+    const triggeredAlarm = await getTriggeredAlarm();
+    if (triggeredAlarm && onAlarmTriggerCallback) {
+      console.log('🔔 [SCHEDULER] Found alarm that triggered while closed:', triggeredAlarm.title);
+      
+      // Trigger the callback with the stored alarm data
+      onAlarmTriggerCallback({
+        id: `triggered_${triggeredAlarm.taskId}`,
+        taskId: triggeredAlarm.taskId,
+        title: triggeredAlarm.title,
+        description: triggeredAlarm.description,
+        triggerTime: new Date(triggeredAlarm.triggeredAt),
+        soundUrl: triggeredAlarm.soundUrl || 'default',
+        voiceUri: triggeredAlarm.voiceUri,
+        voiceReadingEnabled: triggeredAlarm.voiceReadingEnabled,
+      });
+      
+      // Clear the triggered alarm data
+      await clearTriggeredAlarm();
+    }
+  }
+  
+  isInitialized = true;
+  console.log('✅ [SCHEDULER] Alarm scheduler initialized');
 }
 
 /**
- * Set the callback function that will be called when an alarm triggers in-app
+ * Set callback for when alarm triggers
  */
 export function setAlarmTriggerCallback(callback: (alarm: ScheduledAlarm) => void) {
   onAlarmTriggerCallback = callback;
-  console.log('✅ Alarm trigger callback registered');
+  console.log('✅ [SCHEDULER] Alarm trigger callback registered');
 }
 
 /**
- * Schedule an alarm to trigger at a specific time
- * This schedules BOTH:
- * 1. An in-app timer for foreground display
- * 2. A system-level notification for background/killed app
+ * Schedule an alarm
  */
 export async function scheduleAlarm(
   taskId: string,
@@ -67,25 +103,18 @@ export async function scheduleAlarm(
   voiceReadingEnabled?: boolean
 ): Promise<string> {
   const alarmId = `alarm_${taskId}_${Date.now()}`;
-  
   const now = new Date();
   const msUntilTrigger = triggerTime.getTime() - now.getTime();
   
-  console.log('⏰ Scheduling HYBRID alarm:');
+  console.log('⏰ [SCHEDULER] Scheduling alarm:');
   console.log(`   Task: ${title}`);
-  console.log(`   Task ID: ${taskId}`);
-  console.log(`   Current time: ${now.toLocaleTimeString()}`);
-  console.log(`   Trigger time: ${triggerTime.toLocaleTimeString()}`);
-  console.log(`   Seconds until trigger: ${Math.round(msUntilTrigger / 1000)}`);
-  console.log(`   Voice URI: ${voiceUri ? 'YES' : 'NO'}`);
+  console.log(`   Trigger in: ${Math.round(msUntilTrigger / 1000)}s`);
+  console.log(`   Time: ${triggerTime.toLocaleTimeString()}`);
   
-  // Don't schedule if time is in the past
   if (msUntilTrigger <= 0) {
-    console.error('❌ Cannot schedule alarm for past time!');
     throw new Error('Cannot schedule alarm for past time');
   }
   
-  // Create the alarm object
   const alarm: ScheduledAlarm = {
     id: alarmId,
     taskId,
@@ -97,112 +126,119 @@ export async function scheduleAlarm(
     voiceReadingEnabled,
   };
   
-  // 1. SCHEDULE SYSTEM-LEVEL NOTIFICATION (for background/killed app)
-  // This is the most important part - it will fire even if app is completely closed
+  // 1. Schedule SYSTEM-LEVEL notification (works when app is closed)
   if (Platform.OS !== 'web') {
     try {
-      const systemNotifId = await scheduleSystemAlarm(
-        taskId,
-        title,
-        triggerTime,
-        {
-          description,
-          soundUrl,
-          voiceUri,
-          voiceReadingEnabled,
-        }
-      );
-      if (systemNotifId) {
-        alarm.systemNotificationId = systemNotifId;
-        console.log('✅ SYSTEM NOTIFICATION scheduled:', systemNotifId);
-        console.log('   This alarm will fire EVEN IF APP IS CLOSED');
+      const systemId = await scheduleFullScreenAlarm(taskId, title, triggerTime, {
+        description,
+        soundUrl,
+        voiceUri,
+        voiceReadingEnabled,
+      });
+      
+      if (systemId) {
+        alarm.systemNotificationId = systemId;
+        console.log('✅ [SCHEDULER] System notification scheduled');
       }
     } catch (error) {
-      console.error('⚠️ Could not schedule system notification:', error);
+      console.error('⚠️ [SCHEDULER] System notification failed:', error);
     }
   }
   
-  // 2. SCHEDULE IN-APP TIMER (for foreground display with custom modal)
+  // 2. Schedule IN-APP timer (for showing custom modal when app is open)
   const timerId = setTimeout(() => {
-    console.log('🔔🔔🔔 IN-APP ALARM TRIGGERED! 🔔🔔🔔');
+    console.log('🔔🔔🔔 [SCHEDULER] ALARM TRIGGERED! 🔔🔔🔔');
     console.log(`   Task: ${alarm.title}`);
-    console.log(`   Scheduled for: ${alarm.triggerTime.toLocaleTimeString()}`);
-    console.log(`   Actual time: ${new Date().toLocaleTimeString()}`);
     
-    // Cancel the system notification if app is open (we'll show our custom modal instead)
+    // Cancel system notification since we're showing in-app modal
     if (alarm.systemNotificationId && Platform.OS !== 'web') {
       cancelSystemAlarm(taskId);
     }
     
-    // Remove from scheduled alarms
+    // Remove from scheduled
     scheduledAlarms.delete(alarmId);
     
-    // Call the trigger callback to show the alarm modal
+    // Trigger callback
     if (onAlarmTriggerCallback) {
       onAlarmTriggerCallback(alarm);
-    } else {
-      console.error('❌ No alarm trigger callback registered!');
     }
   }, msUntilTrigger);
   
   alarm.timerId = timerId;
-  
-  // Store the alarm
   scheduledAlarms.set(alarmId, alarm);
   
-  console.log(`✅ HYBRID ALARM scheduled with ID: ${alarmId}`);
-  console.log(`   In-app timer will trigger in ${Math.round(msUntilTrigger / 1000)} seconds`);
-  console.log(`   System notification will trigger even if app is closed`);
-  
+  console.log(`✅ [SCHEDULER] Alarm ${alarmId} scheduled`);
   return alarmId;
 }
 
 /**
- * Cancel a scheduled alarm (both in-app timer and system notification)
+ * Cancel alarm
  */
 export function cancelAlarm(alarmId: string): boolean {
   const alarm = scheduledAlarms.get(alarmId);
   
   if (alarm) {
-    if (alarm.timerId) {
-      clearTimeout(alarm.timerId);
-    }
-    // Also cancel system notification
-    if (Platform.OS !== 'web') {
-      cancelSystemAlarm(alarm.taskId);
-    }
+    if (alarm.timerId) clearTimeout(alarm.timerId);
+    if (Platform.OS !== 'web') cancelSystemAlarm(alarm.taskId);
     scheduledAlarms.delete(alarmId);
-    console.log(`✅ Alarm cancelled: ${alarmId}`);
+    console.log(`✅ [SCHEDULER] Cancelled: ${alarmId}`);
     return true;
   }
   
-  console.log(`⚠️ Alarm not found: ${alarmId}`);
   return false;
 }
 
 /**
- * Cancel all alarms for a specific task
+ * Cancel alarms for task
  */
 export function cancelAlarmsForTask(taskId: string): number {
-  let cancelled = 0;
+  let count = 0;
   
   scheduledAlarms.forEach((alarm, alarmId) => {
     if (alarm.taskId === taskId) {
-      if (alarm.timerId) {
-        clearTimeout(alarm.timerId);
-      }
+      if (alarm.timerId) clearTimeout(alarm.timerId);
       scheduledAlarms.delete(alarmId);
-      cancelled++;
+      count++;
     }
   });
   
-  // Cancel system notification for this task
-  if (Platform.OS !== 'web') {
-    cancelSystemAlarm(taskId);
-  }
+  if (Platform.OS !== 'web') cancelSystemAlarm(taskId);
   
-  console.log(`✅ Cancelled ${cancelled} alarms for task ${taskId}`);
-  return cancelled;
+  console.log(`✅ [SCHEDULER] Cancelled ${count} alarms for task ${taskId}`);
+  return count;
+}
+
+/**
+ * Snooze alarm
+ */
+export async function snoozeAlarm(
+  taskId: string,
+  title: string,
+  minutes: number,
+  options: any = {}
+): Promise<string | null> {
+  console.log(`😴 [SCHEDULER] Snoozing ${title} for ${minutes}min`);
+  
+  // Cancel existing
+  cancelAlarmsForTask(taskId);
+  
+  // Schedule new
+  const snoozeTime = new Date(Date.now() + minutes * 60 * 1000);
+  
+  try {
+    return await scheduleAlarm(
+      taskId,
+      title,
+      snoozeTime,
+      options.soundUrl || 'default',
+      options.description,
+      options.voiceUri,
+      options.voiceReadingEnabled
+    );
+  } catch (error) {
+    console.error('❌ [SCHEDULER] Snooze failed:', error);
+    return null;
+  }
 }
 
 /**
@@ -213,32 +249,16 @@ export function getScheduledAlarms(): ScheduledAlarm[] {
 }
 
 /**
- * Clear all scheduled alarms
+ * Clear all alarms
  */
 export function clearAllAlarms(): void {
   scheduledAlarms.forEach((alarm) => {
-    if (alarm.timerId) {
-      clearTimeout(alarm.timerId);
-    }
+    if (alarm.timerId) clearTimeout(alarm.timerId);
+    if (Platform.OS !== 'web') cancelSystemAlarm(alarm.taskId);
   });
   scheduledAlarms.clear();
-  console.log('✅ All alarms cleared');
+  console.log('✅ [SCHEDULER] All alarms cleared');
 }
 
-/**
- * Snooze an alarm by a specified number of minutes
- */
-export function snoozeAlarm(
-  taskId: string,
-  title: string,
-  minutes: number,
-  soundUrl: string = 'default',
-  description?: string
-): string {
-  const snoozeTime = new Date(Date.now() + minutes * 60 * 1000);
-  
-  console.log(`⏰ Snoozing alarm for ${minutes} minutes`);
-  console.log(`   New trigger time: ${snoozeTime.toLocaleTimeString()}`);
-  
-  return scheduleAlarm(taskId, title, snoozeTime, soundUrl, description);
-}
+// Re-export sound functions
+export { startAlarmSound, stopAlarmSound };
