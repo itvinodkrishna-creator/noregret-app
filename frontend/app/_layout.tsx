@@ -444,6 +444,9 @@ function TabLayout() {
       
       {/* Floating Home Button */}
       <FloatingHomeButton />
+      
+      {/* Floating To-Do Button (right side middle) */}
+      <FloatingTodoButton />
     </>
   );
 }
