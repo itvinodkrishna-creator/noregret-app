@@ -23,9 +23,13 @@
         "UIBackgroundModes": [
           "audio",
           "fetch",
-          "remote-notification"
+          "remote-notification",
+          "processing"
         ],
-        "NSUserNotificationsUsageDescription": "Get alerts for your tasks and reminders"
+        "NSUserNotificationsUsageDescription": "Get alerts for your tasks and reminders",
+        "BGTaskSchedulerPermittedIdentifiers": [
+          "com.noregret.alarm-check"
+        ]
       }
     },
     "android": {
@@ -40,7 +44,11 @@
         "VIBRATE",
         "WAKE_LOCK",
         "USE_FULL_SCREEN_INTENT",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "SCHEDULE_EXACT_ALARM",
+        "USE_EXACT_ALARM",
+        "FOREGROUND_SERVICE",
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
       ]
     },
     "web": {
@@ -54,10 +62,12 @@
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#ffffff"
+          "color": "#ffffff",
+          "sounds": ["./assets/sounds/notification.mp3"]
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "expo-task-manager"
     ],
     "experiments": {
       "typedRoutes": true
