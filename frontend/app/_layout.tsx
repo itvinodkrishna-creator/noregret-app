@@ -182,11 +182,19 @@ function TabLayout() {
       console.log(`   Voice reading (TTS): ${voiceEnabled && !voiceUri ? 'ON' : 'OFF'}`);
     });
     
-    console.log('✅ Noregret alarm system initialized');
+    console.log('✅ Noregret alarm system initialized with background support');
+    
+    // On Android, suggest disabling battery optimization for reliable alarms
+    if (Platform.OS === 'android') {
+      // Only show this once per session
+      // requestBatteryOptimizationExemption();
+    }
     
     // Cleanup on unmount
     return () => {
       callbackSetRef.current = false;
+      notificationReceivedSubscription.remove();
+      notificationResponseSubscription.remove();
     };
   }, []);
 
