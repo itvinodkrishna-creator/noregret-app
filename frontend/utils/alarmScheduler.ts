@@ -97,42 +97,47 @@ export async function scheduleAlarm(
     voiceReadingEnabled,
   };
   
-  // Schedule native notification for background (native platforms only)
-  // This ensures alarm plays even if app is closed
+  // 1. SCHEDULE SYSTEM-LEVEL NOTIFICATION (for background/killed app)
+  // This is the most important part - it will fire even if app is completely closed
   if (Platform.OS !== 'web') {
     try {
-      const nativeId = await scheduleBackgroundAlarm(
+      const systemNotifId = await scheduleSystemAlarm(
         taskId,
         title,
-        description || 'Time for your task!',
         triggerTime,
-        soundUrl
+        {
+          description,
+          soundUrl,
+          voiceUri,
+          voiceReadingEnabled,
+        }
       );
-      if (nativeId) {
-        alarm.nativeNotificationId = nativeId;
-        console.log('✅ Native background notification also scheduled:', nativeId);
+      if (systemNotifId) {
+        alarm.systemNotificationId = systemNotifId;
+        console.log('✅ SYSTEM NOTIFICATION scheduled:', systemNotifId);
+        console.log('   This alarm will fire EVEN IF APP IS CLOSED');
       }
     } catch (error) {
-      console.error('⚠️ Could not schedule native notification:', error);
+      console.error('⚠️ Could not schedule system notification:', error);
     }
   }
   
-  // Set up the timer to trigger the alarm (for when app is in foreground)
+  // 2. SCHEDULE IN-APP TIMER (for foreground display with custom modal)
   const timerId = setTimeout(() => {
-    console.log('🔔🔔🔔 ALARM TRIGGERED! 🔔🔔🔔');
+    console.log('🔔🔔🔔 IN-APP ALARM TRIGGERED! 🔔🔔🔔');
     console.log(`   Task: ${alarm.title}`);
     console.log(`   Scheduled for: ${alarm.triggerTime.toLocaleTimeString()}`);
     console.log(`   Actual time: ${new Date().toLocaleTimeString()}`);
     
-    // Cancel the native notification if app is open (we'll show our custom modal instead)
-    if (alarm.nativeNotificationId && Platform.OS !== 'web') {
-      cancelNotification(alarm.nativeNotificationId);
+    // Cancel the system notification if app is open (we'll show our custom modal instead)
+    if (alarm.systemNotificationId && Platform.OS !== 'web') {
+      cancelSystemAlarm(taskId);
     }
     
     // Remove from scheduled alarms
     scheduledAlarms.delete(alarmId);
     
-    // Call the trigger callback
+    // Call the trigger callback to show the alarm modal
     if (onAlarmTriggerCallback) {
       onAlarmTriggerCallback(alarm);
     } else {
@@ -145,8 +150,9 @@ export async function scheduleAlarm(
   // Store the alarm
   scheduledAlarms.set(alarmId, alarm);
   
-  console.log(`✅ Alarm scheduled with ID: ${alarmId}`);
-  console.log(`   Will trigger in ${Math.round(msUntilTrigger / 1000)} seconds`);
+  console.log(`✅ HYBRID ALARM scheduled with ID: ${alarmId}`);
+  console.log(`   In-app timer will trigger in ${Math.round(msUntilTrigger / 1000)} seconds`);
+  console.log(`   System notification will trigger even if app is closed`);
   
   return alarmId;
 }
