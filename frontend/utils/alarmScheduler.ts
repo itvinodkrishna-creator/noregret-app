@@ -158,7 +158,7 @@ export async function scheduleAlarm(
 }
 
 /**
- * Cancel a scheduled alarm
+ * Cancel a scheduled alarm (both in-app timer and system notification)
  */
 export function cancelAlarm(alarmId: string): boolean {
   const alarm = scheduledAlarms.get(alarmId);
@@ -167,9 +167,9 @@ export function cancelAlarm(alarmId: string): boolean {
     if (alarm.timerId) {
       clearTimeout(alarm.timerId);
     }
-    // Also cancel native notification if exists
-    if (alarm.nativeNotificationId && Platform.OS !== 'web') {
-      cancelNotification(alarm.nativeNotificationId);
+    // Also cancel system notification
+    if (Platform.OS !== 'web') {
+      cancelSystemAlarm(alarm.taskId);
     }
     scheduledAlarms.delete(alarmId);
     console.log(`✅ Alarm cancelled: ${alarmId}`);
@@ -191,14 +191,15 @@ export function cancelAlarmsForTask(taskId: string): number {
       if (alarm.timerId) {
         clearTimeout(alarm.timerId);
       }
-      // Also cancel native notification if exists
-      if (alarm.nativeNotificationId && Platform.OS !== 'web') {
-        cancelNotification(alarm.nativeNotificationId);
-      }
       scheduledAlarms.delete(alarmId);
       cancelled++;
     }
   });
+  
+  // Cancel system notification for this task
+  if (Platform.OS !== 'web') {
+    cancelSystemAlarm(taskId);
+  }
   
   console.log(`✅ Cancelled ${cancelled} alarms for task ${taskId}`);
   return cancelled;
