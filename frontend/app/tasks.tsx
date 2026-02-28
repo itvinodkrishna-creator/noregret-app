@@ -648,6 +648,94 @@ export default function TasksScreen() {
           />
         </View>
       )}
+
+      {/* Recurring Task Options */}
+      {reminderEnabled && (
+        <View style={[styles.recurringContainer, { borderTopColor: theme.border }]}>
+          <View style={styles.recurringHeader}>
+            <Ionicons name="repeat" size={22} color="#8B5CF6" />
+            <Text style={[styles.recurringTitle, { color: theme.text }]}>Repeat</Text>
+          </View>
+          
+          <View style={styles.recurringTypeRow}>
+            {[
+              { id: 'none', label: 'Once', icon: 'radio-button-off' },
+              { id: 'daily', label: 'Daily', icon: 'sunny' },
+              { id: 'weekly', label: 'Weekly', icon: 'calendar' },
+            ].map((type) => (
+              <TouchableOpacity
+                key={type.id}
+                style={[
+                  styles.recurringTypeButton,
+                  { 
+                    backgroundColor: recurringType === type.id ? '#8B5CF6' : theme.card,
+                    borderColor: '#8B5CF6',
+                  },
+                ]}
+                onPress={() => {
+                  playClickSound(preferences.soundEnabled);
+                  setRecurringType(type.id as 'none' | 'daily' | 'weekly');
+                }}
+              >
+                <Ionicons 
+                  name={type.icon as any} 
+                  size={16} 
+                  color={recurringType === type.id ? '#FFFFFF' : '#8B5CF6'} 
+                />
+                <Text style={[
+                  styles.recurringTypeText, 
+                  { color: recurringType === type.id ? '#FFFFFF' : '#8B5CF6' }
+                ]}>
+                  {type.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Day Selection for Weekly */}
+          {recurringType === 'weekly' && (
+            <View style={styles.weeklyDayContainer}>
+              <Text style={[styles.weeklyDayLabel, { color: theme.textSecondary }]}>
+                Select day of the week:
+              </Text>
+              <View style={styles.weeklyDayGrid}>
+                {DAYS_OF_WEEK.map((day) => (
+                  <TouchableOpacity
+                    key={day.id}
+                    style={[
+                      styles.weeklyDayButton,
+                      { 
+                        backgroundColor: recurringDay === day.id ? '#8B5CF6' : theme.card,
+                        borderColor: recurringDay === day.id ? '#8B5CF6' : theme.border,
+                      },
+                    ]}
+                    onPress={() => {
+                      playClickSound(preferences.soundEnabled);
+                      setRecurringDay(day.id);
+                    }}
+                  >
+                    <Text style={[
+                      styles.weeklyDayText, 
+                      { color: recurringDay === day.id ? '#FFFFFF' : theme.text }
+                    ]}>
+                      {day.short}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={[styles.weeklyDayInfo, { color: theme.textSecondary }]}>
+                Alarm will repeat every {DAYS_OF_WEEK[recurringDay].label} at {format(selectedTime, 'h:mm a')}
+              </Text>
+            </View>
+          )}
+
+          {recurringType === 'daily' && (
+            <Text style={[styles.recurringInfo, { color: theme.textSecondary }]}>
+              Alarm will repeat every day at {format(selectedTime, 'h:mm a')}
+            </Text>
+          )}
+        </View>
+      )}
     </ScrollView>
   );
 
