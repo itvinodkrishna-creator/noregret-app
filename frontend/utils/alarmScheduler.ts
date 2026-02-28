@@ -368,10 +368,10 @@ export async function snoozeAlarm(
 ): Promise<string | null> {
   console.log(`😴 [SCHEDULER] Snoozing ${title} for ${minutes}min`);
   
-  // Cancel existing
+  // Cancel existing alarms
   cancelAlarmsForTask(taskId);
   
-  // Schedule new
+  // Schedule new alarm
   const snoozeTime = new Date(Date.now() + minutes * 60 * 1000);
   
   try {
@@ -403,11 +403,14 @@ export function getScheduledAlarms(): ScheduledAlarm[] {
 export function clearAllAlarms(): void {
   scheduledAlarms.forEach((alarm) => {
     if (alarm.timerId) clearTimeout(alarm.timerId);
-    if (Platform.OS !== 'web') cancelSystemAlarm(alarm.taskId);
+    if (Platform.OS !== 'web') {
+      cancelNotifeeAlarm(alarm.taskId);
+      cancelSystemAlarm(alarm.taskId);
+    }
   });
   scheduledAlarms.clear();
   console.log('✅ [SCHEDULER] All alarms cleared');
 }
 
-// Re-export sound functions
-export { startAlarmSound, stopAlarmSound };
+// Export for external use
+export { requestBatteryExemption };
