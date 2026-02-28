@@ -170,8 +170,28 @@ export default function TasksScreen() {
     taskDateTime.setSeconds(0);
     taskDateTime.setMilliseconds(0);
 
+    // For weekly recurring, calculate the next occurrence
+    let finalDateTime = taskDateTime;
+    if (recurringType === 'weekly') {
+      const today = new Date();
+      const todayDay = today.getDay();
+      let daysUntilTarget = recurringDay - todayDay;
+      if (daysUntilTarget < 0) daysUntilTarget += 7;
+      if (daysUntilTarget === 0) {
+        // If same day, check if time has passed
+        const targetTime = new Date(today);
+        targetTime.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
+        if (today > targetTime) {
+          daysUntilTarget = 7; // Next week
+        }
+      }
+      finalDateTime = new Date(today);
+      finalDateTime.setDate(today.getDate() + daysUntilTarget);
+      finalDateTime.setHours(selectedTime.getHours(), selectedTime.getMinutes(), 0, 0);
+    }
+
     const now = new Date();
-    const msUntilAlarm = taskDateTime.getTime() - now.getTime();
+    const msUntilAlarm = finalDateTime.getTime() - now.getTime();
     
     if (msUntilAlarm < 60000) {
       showToast('Please select a time at least 1 minute in the future', 'error');
@@ -183,7 +203,15 @@ export default function TasksScreen() {
 
     if (reminderEnabled) {
       try {
-        alarmId = scheduleAlarm(taskId, title.trim(), taskDateTime, selectedRingtone, description.trim());
+        alarmId = await scheduleAlarm(
+          taskId, 
+          title.trim(), 
+          finalDateTime, 
+          selectedRingtone, 
+          description.trim(),
+          taskVoiceUri || undefined,
+          voiceReadingEnabled
+        );
       } catch (error) {
         console.error('Error scheduling alarm:', error);
       }
@@ -192,7 +220,7 @@ export default function TasksScreen() {
     await addTask({
       title: title.trim(),
       description: description.trim(),
-      time: taskDateTime.toISOString(),
+      time: finalDateTime.toISOString(),
       category: selectedCategory,
       status: 'pending',
       reminderEnabled,
@@ -200,11 +228,16 @@ export default function TasksScreen() {
       notificationId: alarmId,
       voiceReadingEnabled,
       voiceUri: taskVoiceUri || undefined,
+      recurringType,
+      recurringDay: recurringType === 'weekly' ? recurringDay : undefined,
     });
 
     resetForm();
     setShowAddModal(false);
-    showToast('Task Created Successfully!', 'success');
+    const recurringInfo = recurringType === 'weekly' 
+      ? ` (Every ${DAYS_OF_WEEK[recurringDay].label})` 
+      : recurringType === 'daily' ? ' (Daily)' : '';
+    showToast(`Task Created Successfully!${recurringInfo}`, 'success');
   };
 
   const handleEditTask = async () => {
