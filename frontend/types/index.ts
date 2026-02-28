@@ -28,6 +28,14 @@ export interface TodoItem {
   createdAt: string;
   completedAt?: string;
   order: number; // For sorting
+  comments: TodoComment[]; // Comments/status updates
+}
+
+// Comment on a To-Do item
+export interface TodoComment {
+  _id: string;
+  text: string;
+  createdAt: string;
 }
 
 // Status configuration for display
