@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Task, FoodPlan, UserPreferences, UserStats } from '../types';
+import { Task, FoodPlan, UserPreferences, UserStats, TodoItem } from '../types';
 import * as storage from '../utils/storage';
 import { format, parseISO, differenceInDays } from 'date-fns';
 
@@ -21,6 +21,7 @@ interface DraftTask {
 interface AppState {
   tasks: Task[];
   foodPlans: FoodPlan[];
+  todoItems: TodoItem[]; // To-Do List items
   preferences: UserPreferences;
   stats: UserStats;
   loading: boolean;
@@ -45,6 +46,15 @@ interface AppState {
   saveDraft: (draft: DraftTask) => void;
   clearDraft: () => void;
   restoreDraft: () => DraftTask | null;
+  
+  // To-Do List actions
+  addTodoItem: (title: string, time?: string) => void;
+  toggleTodoItem: (id: string) => void;
+  deleteTodoItem: (id: string) => void;
+  updateTodoItem: (id: string, updates: Partial<TodoItem>) => void;
+  reorderTodoItems: (items: TodoItem[]) => void;
+  getWaitingTodos: () => TodoItem[];
+  getDoneTodos: () => TodoItem[];
   
   // Food plan actions
   addFoodPlan: (foodPlan: Omit<FoodPlan, '_id' | 'createdAt'>) => Promise<void>;
