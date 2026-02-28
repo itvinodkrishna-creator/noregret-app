@@ -3,22 +3,116 @@
  * 
  * Combines:
  * 1. In-app timer (setTimeout) - For foreground alarm modal
- * 2. System-level notification - For background/killed app scenarios
+ * 2. Notifee notifications - For TRUE background/killed app alarms
  * 
- * The system notification uses full-screen intent to wake the device.
+ * Uses @notifee/react-native for reliable full-screen alarms on Android.
  */
 
-import { Platform } from 'react-native';
+import { Platform, Vibration } from 'react-native';
+import { Audio } from 'expo-av';
 import { 
   scheduleFullScreenAlarm, 
   cancelAlarm as cancelSystemAlarm,
   snoozeAlarm as snoozeSystemAlarm,
-  startAlarmSound,
-  stopAlarmSound,
   initializeAlarmSystem,
   getTriggeredAlarm,
   clearTriggeredAlarm,
 } from './systemAlarmService';
+import {
+  initializeNotifeeAlarms,
+  scheduleNotifeeAlarm,
+  cancelNotifeeAlarm,
+  setNotifeeAlarmCallback,
+  stopNotifeeVibration,
+  requestBatteryExemption,
+} from './notifeeAlarmService';
+
+// Alarm sound management
+let alarmSound: Audio.Sound | null = null;
+let isAlarmPlaying = false;
+
+// Alarm sound URLs
+const ALARM_SOUNDS: { [key: string]: string } = {
+  default: 'https://assets.mixkit.co/active_storage/sfx/2869/2869.wav',
+  bell: 'https://assets.mixkit.co/active_storage/sfx/2568/2568.wav',
+  chime: 'https://assets.mixkit.co/active_storage/sfx/2571/2571.wav',
+  alert: 'https://assets.mixkit.co/active_storage/sfx/2870/2870.wav',
+  loud: 'https://assets.mixkit.co/active_storage/sfx/1005/1005.wav',
+};
+
+/**
+ * Start playing alarm sound (loops continuously)
+ */
+export async function startAlarmSound(soundId: string = 'default'): Promise<void> {
+  if (isAlarmPlaying) {
+    console.log('ℹ️ [ALARM] Sound already playing');
+    return;
+  }
+  
+  try {
+    console.log('🔊 [ALARM] Starting alarm sound:', soundId);
+    
+    // Stop any existing sound
+    await stopAlarmSound();
+    
+    // Configure audio for alarm playback
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      staysActiveInBackground: true,
+      playsInSilentModeIOS: true,
+      shouldDuckAndroid: false,
+      playThroughEarpieceAndroid: false,
+    });
+    
+    // Get sound URL
+    const soundUrl = ALARM_SOUNDS[soundId] || ALARM_SOUNDS.default;
+    
+    // Create and play sound
+    const { sound } = await Audio.Sound.createAsync(
+      { uri: soundUrl },
+      { 
+        shouldPlay: true, 
+        isLooping: true,
+        volume: 1.0,
+      }
+    );
+    
+    alarmSound = sound;
+    isAlarmPlaying = true;
+    
+    // Start vibration pattern
+    Vibration.vibrate([0, 1000, 500, 1000, 500, 1000], true);
+    
+    console.log('✅ [ALARM] Sound started');
+  } catch (error) {
+    console.error('❌ [ALARM] Sound playback failed:', error);
+  }
+}
+
+/**
+ * Stop alarm sound
+ */
+export async function stopAlarmSound(): Promise<void> {
+  try {
+    console.log('🔇 [ALARM] Stopping alarm sound');
+    
+    // Stop vibration
+    Vibration.cancel();
+    stopNotifeeVibration();
+    
+    // Stop and unload sound
+    if (alarmSound) {
+      await alarmSound.stopAsync();
+      await alarmSound.unloadAsync();
+      alarmSound = null;
+    }
+    
+    isAlarmPlaying = false;
+    console.log('✅ [ALARM] Sound stopped');
+  } catch (error) {
+    console.error('❌ [ALARM] Stop sound failed:', error);
+  }
+}
 
 interface ScheduledAlarm {
   id: string;
