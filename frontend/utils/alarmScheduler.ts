@@ -125,6 +125,7 @@ interface ScheduledAlarm {
   voiceReadingEnabled?: boolean;
   timerId?: any;
   systemNotificationId?: string;
+  notifeeId?: string;
 }
 
 // In-memory alarm storage
@@ -135,6 +136,7 @@ let onAlarmTriggerCallback: ((alarm: ScheduledAlarm) => void) | null = null;
 
 // Track initialization
 let isInitialized = false;
+let batteryPromptShown = false;
 
 /**
  * Initialize the alarm scheduler
@@ -144,18 +146,48 @@ export async function initAlarmScheduler(): Promise<void> {
   
   console.log('🔧 [SCHEDULER] Initializing hybrid alarm scheduler...');
   
-  // Initialize system alarm service
+  // Initialize both alarm services on native
   if (Platform.OS !== 'web') {
+    // Initialize expo-notifications based service
     await initializeAlarmSystem();
+    
+    // Initialize Notifee (more reliable for killed app)
+    await initializeNotifeeAlarms();
+    
+    // Set up Notifee callback for background alarms
+    setNotifeeAlarmCallback((data) => {
+      console.log('🔔 [SCHEDULER] Notifee alarm callback:', data.title);
+      
+      if (onAlarmTriggerCallback) {
+        onAlarmTriggerCallback({
+          id: `notifee_${data.taskId}`,
+          taskId: data.taskId,
+          title: data.title,
+          description: data.description,
+          triggerTime: new Date(data.triggeredAt || Date.now()),
+          soundUrl: data.soundUrl || 'default',
+          voiceUri: data.voiceUri,
+          voiceReadingEnabled: data.voiceReadingEnabled,
+        });
+      }
+    });
+    
+    // Show battery optimization prompt once
+    if (!batteryPromptShown) {
+      batteryPromptShown = true;
+      // Delay to not interrupt initial load
+      setTimeout(() => {
+        requestBatteryExemption();
+      }, 5000);
+    }
   }
   
-  // Check for alarms that triggered while app was closed
+  // Check for alarms that triggered while app was closed (expo-notifications)
   if (Platform.OS !== 'web') {
     const triggeredAlarm = await getTriggeredAlarm();
     if (triggeredAlarm && onAlarmTriggerCallback) {
-      console.log('🔔 [SCHEDULER] Found alarm that triggered while closed:', triggeredAlarm.title);
+      console.log('🔔 [SCHEDULER] Found expo-notifications alarm:', triggeredAlarm.title);
       
-      // Trigger the callback with the stored alarm data
       onAlarmTriggerCallback({
         id: `triggered_${triggeredAlarm.taskId}`,
         taskId: triggeredAlarm.taskId,
@@ -167,13 +199,12 @@ export async function initAlarmScheduler(): Promise<void> {
         voiceReadingEnabled: triggeredAlarm.voiceReadingEnabled,
       });
       
-      // Clear the triggered alarm data
       await clearTriggeredAlarm();
     }
   }
   
   isInitialized = true;
-  console.log('✅ [SCHEDULER] Alarm scheduler initialized');
+  console.log('✅ [SCHEDULER] Alarm scheduler initialized with Notifee + expo-notifications');
 }
 
 /**
@@ -185,7 +216,7 @@ export function setAlarmTriggerCallback(callback: (alarm: ScheduledAlarm) => voi
 }
 
 /**
- * Schedule an alarm
+ * Schedule an alarm - uses BOTH Notifee and expo-notifications for maximum reliability
  */
 export async function scheduleAlarm(
   taskId: string,
@@ -202,7 +233,7 @@ export async function scheduleAlarm(
   
   console.log('⏰ [SCHEDULER] Scheduling alarm:');
   console.log(`   Task: ${title}`);
-  console.log(`   Trigger in: ${Math.round(msUntilTrigger / 1000)}s`);
+  console.log(`   Trigger in: ${Math.round(msUntilTrigger / 1000)}s (${Math.round(msUntilTrigger / 60000)}min)`);
   console.log(`   Time: ${triggerTime.toLocaleTimeString()}`);
   
   if (msUntilTrigger <= 0) {
@@ -220,8 +251,25 @@ export async function scheduleAlarm(
     voiceReadingEnabled,
   };
   
-  // 1. Schedule SYSTEM-LEVEL notification (works when app is closed)
   if (Platform.OS !== 'web') {
+    // 1. Schedule with NOTIFEE (primary - most reliable for killed app)
+    try {
+      const notifeeId = await scheduleNotifeeAlarm(taskId, title, triggerTime, {
+        description,
+        soundUrl,
+        voiceUri,
+        voiceReadingEnabled,
+      });
+      
+      if (notifeeId) {
+        alarm.notifeeId = notifeeId;
+        console.log('✅ [SCHEDULER] Notifee alarm scheduled:', notifeeId);
+      }
+    } catch (error) {
+      console.error('⚠️ [SCHEDULER] Notifee scheduling failed:', error);
+    }
+    
+    // 2. Schedule with expo-notifications (backup)
     try {
       const systemId = await scheduleFullScreenAlarm(taskId, title, triggerTime, {
         description,
@@ -232,21 +280,22 @@ export async function scheduleAlarm(
       
       if (systemId) {
         alarm.systemNotificationId = systemId;
-        console.log('✅ [SCHEDULER] System notification scheduled');
+        console.log('✅ [SCHEDULER] expo-notifications alarm scheduled:', systemId);
       }
     } catch (error) {
-      console.error('⚠️ [SCHEDULER] System notification failed:', error);
+      console.error('⚠️ [SCHEDULER] expo-notifications failed:', error);
     }
   }
   
-  // 2. Schedule IN-APP timer (for showing custom modal when app is open)
+  // 3. Schedule IN-APP timer (for showing custom modal when app is open)
   const timerId = setTimeout(() => {
-    console.log('🔔🔔🔔 [SCHEDULER] ALARM TRIGGERED! 🔔🔔🔔');
+    console.log('🔔🔔🔔 [SCHEDULER] IN-APP ALARM TRIGGERED! 🔔🔔🔔');
     console.log(`   Task: ${alarm.title}`);
     
-    // Cancel system notification since we're showing in-app modal
-    if (alarm.systemNotificationId && Platform.OS !== 'web') {
-      cancelSystemAlarm(taskId);
+    // Cancel system notifications since we're showing in-app modal
+    if (Platform.OS !== 'web') {
+      if (alarm.notifeeId) cancelNotifeeAlarm(taskId);
+      if (alarm.systemNotificationId) cancelSystemAlarm(taskId);
     }
     
     // Remove from scheduled
@@ -261,7 +310,7 @@ export async function scheduleAlarm(
   alarm.timerId = timerId;
   scheduledAlarms.set(alarmId, alarm);
   
-  console.log(`✅ [SCHEDULER] Alarm ${alarmId} scheduled`);
+  console.log(`✅ [SCHEDULER] Alarm ${alarmId} scheduled (Notifee + expo-notifications + in-app timer)`);
   return alarmId;
 }
 
@@ -273,7 +322,10 @@ export function cancelAlarm(alarmId: string): boolean {
   
   if (alarm) {
     if (alarm.timerId) clearTimeout(alarm.timerId);
-    if (Platform.OS !== 'web') cancelSystemAlarm(alarm.taskId);
+    if (Platform.OS !== 'web') {
+      cancelNotifeeAlarm(alarm.taskId);
+      cancelSystemAlarm(alarm.taskId);
+    }
     scheduledAlarms.delete(alarmId);
     console.log(`✅ [SCHEDULER] Cancelled: ${alarmId}`);
     return true;
@@ -296,7 +348,10 @@ export function cancelAlarmsForTask(taskId: string): number {
     }
   });
   
-  if (Platform.OS !== 'web') cancelSystemAlarm(taskId);
+  if (Platform.OS !== 'web') {
+    cancelNotifeeAlarm(taskId);
+    cancelSystemAlarm(taskId);
+  }
   
   console.log(`✅ [SCHEDULER] Cancelled ${count} alarms for task ${taskId}`);
   return count;
