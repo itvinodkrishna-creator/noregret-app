@@ -12,17 +12,23 @@ import {
   snoozeAlarm as snoozeAlarmScheduler,
   cancelAlarmsForTask,
   scheduleAlarm,
-  initAlarmScheduler 
+  initAlarmScheduler,
+  startAlarmSound,
+  stopAlarmSound as stopSchedulerSound,
 } from '../utils/alarmScheduler';
 import { 
-  playAlarmSound, 
-  stopAlarmSound,
   setupNotificationCategories,
   registerForPushNotificationsAsync,
 } from '../utils/notifications';
 import { initClickSound } from '../utils/sounds';
 import { initVoiceReader } from '../utils/voiceReader';
-import { initializeAlarmSystem, openAlarmSettings, requestBatteryOptimizationExemption } from '../utils/systemAlarmService';
+import { 
+  initializeAlarmSystem, 
+  openAlarmSettings, 
+  requestBatteryOptimization,
+  getTriggeredAlarm,
+  clearTriggeredAlarm,
+} from '../utils/systemAlarmService';
 
 const TabIcon = ({ name, color, size, focused }: { name: string; color: string; size: number; focused: boolean }) => (
   <View style={[styles.tabIconContainer, focused && styles.tabIconFocused]}>
