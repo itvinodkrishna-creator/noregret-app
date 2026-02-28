@@ -85,6 +85,7 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       tasks: [],
       foodPlans: [],
+      todoItems: [], // To-Do List items
       preferences: { 
         darkMode: true, 
         notificationFrequency: 5,
