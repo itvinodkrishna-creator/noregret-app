@@ -110,7 +110,8 @@ function TabLayout() {
           voiceUri: data.voiceUri || task?.voiceUri,
         };
         
-        playAlarmSound(data.soundUrl || 'default');
+        // Start alarm sound using the new system
+        startAlarmSound(data.soundUrl || 'default');
         useAppStore.getState().markTaskAlarmTriggered(data.taskId);
         
         alarmStateRef.current = newState;
@@ -141,7 +142,8 @@ function TabLayout() {
           voiceUri: data.voiceUri || task?.voiceUri,
         };
         
-        playAlarmSound(data.soundUrl || 'default');
+        // Start alarm sound
+        startAlarmSound(data.soundUrl || 'default');
         useAppStore.getState().markTaskAlarmTriggered(data.taskId);
         
         alarmStateRef.current = newState;
@@ -160,7 +162,7 @@ function TabLayout() {
       // Find the task to get voice reading setting and recorded voice
       const task = useAppStore.getState().tasks.find(t => t._id === alarm.taskId);
       const voiceEnabled = task?.voiceReadingEnabled || useAppStore.getState().preferences.voiceReadingEnabled || false;
-      const voiceUri = task?.voiceUri; // Recorded voice message
+      const voiceUri = task?.voiceUri || alarm.voiceUri; // Recorded voice message
       
       const newState: AlarmState = {
         visible: true,
@@ -172,9 +174,9 @@ function TabLayout() {
         voiceUri: voiceUri, // Pass the recorded voice URI to the modal
       };
       
-      // Play alarm sound with the selected ringtone (NOT the voice - modal will handle voice)
-      console.log('🔊 Playing ringtone:', alarm.soundUrl);
-      playAlarmSound(alarm.soundUrl);
+      // Start looping alarm sound
+      console.log('🔊 Starting alarm sound:', alarm.soundUrl);
+      startAlarmSound(alarm.soundUrl);
       
       // Mark task as alarm triggered (shows check mark icon)
       useAppStore.getState().markTaskAlarmTriggered(alarm.taskId);
