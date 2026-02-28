@@ -433,6 +433,7 @@ export const useAppStore = create<AppState>()(
           completed: false,
           createdAt: new Date().toISOString(),
           order: get().todoItems.length,
+          comments: [], // Initialize with empty comments
         };
         set({ todoItems: [...get().todoItems, newItem] });
       },
@@ -477,6 +478,31 @@ export const useAppStore = create<AppState>()(
         return get().todoItems
           .filter(item => item.completed)
           .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''));
+      },
+      
+      addTodoComment: (todoId: string, text: string) => {
+        const newComment = {
+          _id: `comment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          text,
+          createdAt: new Date().toISOString(),
+        };
+        set({
+          todoItems: get().todoItems.map(item =>
+            item._id === todoId
+              ? { ...item, comments: [...(item.comments || []), newComment] }
+              : item
+          ),
+        });
+      },
+      
+      deleteTodoComment: (todoId: string, commentId: string) => {
+        set({
+          todoItems: get().todoItems.map(item =>
+            item._id === todoId
+              ? { ...item, comments: (item.comments || []).filter(c => c._id !== commentId) }
+              : item
+          ),
+        });
       },
     }),
     {
