@@ -279,6 +279,9 @@ function TabLayout() {
   const handleKeepPending = useCallback(async () => {
     console.log('⏳ Task kept in pending');
     
+    // Stop sound
+    await stopSchedulerSound();
+    
     const currentAlarm = alarmStateRef.current;
     if (currentAlarm) {
       cancelAlarmsForTask(currentAlarm.taskId);
@@ -290,7 +293,8 @@ function TabLayout() {
   const handleAutoStop = useCallback(async () => {
     console.log('⏰ Alarm auto-stopped after 5 minutes - marking as MISSED');
     
-    await stopAlarmSound();
+    // Stop sound
+    await stopSchedulerSound();
     
     const currentAlarm = alarmStateRef.current;
     if (currentAlarm) {
@@ -309,7 +313,8 @@ function TabLayout() {
   const handleSnoozeAlarm = useCallback(async (minutes: number) => {
     console.log(`⏰ SNOOZE pressed - ${minutes} minutes`);
     
-    await stopAlarmSound();
+    // Stop sound
+    await stopSchedulerSound();
     
     const currentAlarm = alarmStateRef.current;
     if (currentAlarm) {
