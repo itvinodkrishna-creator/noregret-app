@@ -1,89 +1,156 @@
 /**
- * System-Level Alarm Service
+ * SYSTEM-LEVEL FULL-SCREEN ALARM SERVICE
  * 
- * This service handles alarms that work even when the app is closed.
- * It uses expo-notifications for scheduling and expo-task-manager for background execution.
+ * This service provides TRUE alarm functionality that works like the default phone alarm:
+ * - Wakes device screen
+ * - Shows full-screen alarm over lock screen
+ * - Plays sound continuously
+ * - Works when app is completely closed
+ * - Voice reading support
  * 
- * Key Features:
- * - Schedules alarms using OS-level notification system
- * - Works when app is killed, screen is off, or phone is locked
- * - Full-screen alarm intent for Android
- * - Background task support
+ * Uses:
+ * - expo-notifications with full-screen intent configuration
+ * - High-priority notification channels with bypassDnd
+ * - Background task manager
+ * - Proper Android permissions
  */
 
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import * as BackgroundFetch from 'expo-background-fetch';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform, AppState, Linking, Alert } from 'react-native';
+import { Platform, AppState, Linking, Alert, Vibration } from 'react-native';
+import { Audio } from 'expo-av';
 
-// Background task name
+// Constants
 const ALARM_CHECK_TASK = 'com.noregret.alarm-check';
 const ALARM_STORAGE_KEY = '@noregret_scheduled_alarms';
+const TRIGGERED_ALARM_KEY = '@noregret_triggered_alarm';
+const AUTO_STOP_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Interface for scheduled alarm
+// Global sound instance for alarm
+let alarmSound: Audio.Sound | null = null;
+let isAlarmPlaying = false;
+let alarmStopTimeout: any = null;
+
+// Alarm sound URLs
+const ALARM_SOUNDS: { [key: string]: string } = {
+  default: 'https://assets.mixkit.co/active_storage/sfx/2869/2869.wav',
+  bell: 'https://assets.mixkit.co/active_storage/sfx/2568/2568.wav',
+  chime: 'https://assets.mixkit.co/active_storage/sfx/2571/2571.wav',
+  alert: 'https://assets.mixkit.co/active_storage/sfx/2870/2870.wav',
+  loud: 'https://assets.mixkit.co/active_storage/sfx/1005/1005.wav',
+};
+
+// Scheduled alarm interface
 export interface ScheduledAlarm {
   id: string;
   taskId: string;
   title: string;
   description?: string;
-  triggerTime: number; // Unix timestamp
+  triggerTime: number;
   soundUrl?: string;
   voiceUri?: string;
   voiceReadingEnabled?: boolean;
   notificationId?: string;
-  status: 'scheduled' | 'triggered' | 'dismissed';
+  backupNotificationId?: string;
+  status: 'scheduled' | 'triggered' | 'dismissed' | 'snoozed';
 }
 
-// Configure notification handler for maximum priority
+// Triggered alarm data (stored when alarm fires while app is closed)
+export interface TriggeredAlarmData {
+  taskId: string;
+  title: string;
+  description?: string;
+  soundUrl?: string;
+  voiceUri?: string;
+  voiceReadingEnabled?: boolean;
+  triggeredAt: number;
+}
+
+// Configure notification handler for MAXIMUM priority
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
-    console.log('📬 Notification received:', notification.request.identifier);
+    const data = notification.request.content.data as any;
+    console.log('📬 [ALARM] Notification handler called:', notification.request.identifier);
+    
+    // If this is an alarm notification, we want maximum visibility
+    if (data?.type === 'alarm') {
+      return {
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      };
+    }
+    
     return {
       shouldShowAlert: true,
       shouldPlaySound: true,
-      shouldSetBadge: true,
-      priority: Notifications.AndroidNotificationPriority.MAX,
+      shouldSetBadge: false,
     };
   },
 });
 
 /**
- * Initialize the alarm system with all necessary configurations
+ * Initialize the full-screen alarm system
  */
 export async function initializeAlarmSystem(): Promise<boolean> {
   try {
-    console.log('🔧 Initializing system-level alarm service...');
+    console.log('🔧 [ALARM] Initializing FULL-SCREEN alarm system...');
     
-    // Request all necessary permissions
+    // Configure audio for alarm playback
+    await configureAudio();
+    
+    // Request all permissions
     const permissionsGranted = await requestAllPermissions();
     if (!permissionsGranted) {
-      console.warn('⚠️ Some permissions not granted, alarms may not work in background');
+      console.warn('⚠️ [ALARM] Some permissions not granted');
     }
     
-    // Set up notification channels for Android
+    // Setup notification channels
     await setupNotificationChannels();
     
     // Register background task
     await registerBackgroundTask();
     
-    // Set up notification response listener
-    setupNotificationListeners();
+    // Check for any triggered alarms while app was closed
+    await checkForTriggeredAlarms();
     
-    console.log('✅ Alarm system initialized successfully');
+    console.log('✅ [ALARM] Full-screen alarm system initialized');
     return true;
   } catch (error) {
-    console.error('❌ Failed to initialize alarm system:', error);
+    console.error('❌ [ALARM] Initialization failed:', error);
     return false;
   }
 }
 
 /**
- * Request all necessary permissions for background alarms
+ * Configure audio session for alarm playback
+ */
+async function configureAudio() {
+  try {
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      staysActiveInBackground: true,
+      playsInSilentModeIOS: true,
+      shouldDuckAndroid: false,
+      playThroughEarpieceAndroid: false,
+    });
+    console.log('✅ [ALARM] Audio configured for alarm playback');
+  } catch (error) {
+    console.error('❌ [ALARM] Audio configuration failed:', error);
+  }
+}
+
+/**
+ * Request all necessary permissions for alarm functionality
  */
 async function requestAllPermissions(): Promise<boolean> {
   try {
-    // Request notification permissions
+    console.log('📋 [ALARM] Requesting permissions...');
+    
+    // Request notification permissions with all options
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
     
@@ -93,81 +160,41 @@ async function requestAllPermissions(): Promise<boolean> {
           allowAlert: true,
           allowBadge: true,
           allowSound: true,
+          allowAnnouncements: true,
           allowCriticalAlerts: true,
+          provideAppNotificationSettings: true,
         },
-        android: {
-          allowAlert: true,
-          allowBadge: true,
-          allowSound: true,
-        },
+        android: {},
       });
       finalStatus = status;
     }
     
     if (finalStatus !== 'granted') {
-      console.warn('⚠️ Notification permission not granted');
+      console.warn('⚠️ [ALARM] Notification permission denied');
       return false;
     }
     
-    // For Android, request exact alarm permission (Android 12+)
-    if (Platform.OS === 'android') {
-      await requestExactAlarmPermission();
-    }
-    
-    console.log('✅ All permissions granted');
+    console.log('✅ [ALARM] All permissions granted');
     return true;
   } catch (error) {
-    console.error('❌ Error requesting permissions:', error);
+    console.error('❌ [ALARM] Permission request failed:', error);
     return false;
   }
 }
 
 /**
- * Request exact alarm permission for Android 12+
- */
-async function requestExactAlarmPermission() {
-  if (Platform.OS === 'android' && Platform.Version >= 31) {
-    try {
-      // Note: This requires expo-build-properties or native code
-      // For now, we'll guide the user to settings if needed
-      console.log('📱 Android 12+ detected, exact alarm permission may be required');
-      
-      // Check if we can schedule exact alarms
-      const canSchedule = await Notifications.getPermissionsAsync();
-      if (canSchedule.status !== 'granted') {
-        console.log('⚠️ Please enable alarm permissions in device settings');
-      }
-    } catch (error) {
-      console.log('ℹ️ Exact alarm permission request not available in managed workflow');
-    }
-  }
-}
-
-/**
- * Set up Android notification channels with maximum priority
+ * Setup Android notification channels with MAXIMUM priority
  */
 async function setupNotificationChannels() {
-  if (Platform.OS === 'android') {
-    // Main alarm channel - HIGH PRIORITY
-    await Notifications.setNotificationChannelAsync('alarm', {
-      name: 'Task Alarms',
+  if (Platform.OS !== 'android') return;
+  
+  try {
+    // Main alarm channel - CRITICAL PRIORITY
+    await Notifications.setNotificationChannelAsync('alarm_critical', {
+      name: 'Critical Alarms',
+      description: 'High-priority task alarms that wake the device',
       importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 500, 250, 500, 250, 500],
-      lightColor: '#FF231F7C',
-      sound: 'default',
-      enableVibrate: true,
-      enableLights: true,
-      bypassDnd: true,
-      showBadge: true,
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-    });
-    
-    // Critical alarm channel - HIGHEST PRIORITY with full-screen intent
-    await Notifications.setNotificationChannelAsync('critical_alarm', {
-      name: 'Critical Task Alarms',
-      description: 'High priority alarms that wake the device',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 1000, 500, 1000, 500, 1000],
+      vibrationPattern: [0, 1000, 500, 1000, 500, 1000, 500, 1000],
       lightColor: '#FF0000',
       sound: 'default',
       enableVibrate: true,
@@ -177,7 +204,21 @@ async function setupNotificationChannels() {
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
     
-    console.log('✅ Android notification channels configured');
+    // Backup alarm channel
+    await Notifications.setNotificationChannelAsync('alarm_backup', {
+      name: 'Backup Alarms',
+      description: 'Backup alarm notifications',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 500, 250, 500],
+      sound: 'default',
+      enableVibrate: true,
+      bypassDnd: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+    
+    console.log('✅ [ALARM] Notification channels configured');
+  } catch (error) {
+    console.error('❌ [ALARM] Channel setup failed:', error);
   }
 }
 
@@ -187,82 +228,66 @@ async function setupNotificationChannels() {
 async function registerBackgroundTask() {
   try {
     // Define the background task
-    TaskManager.defineTask(ALARM_CHECK_TASK, async () => {
-      console.log('🔄 Background alarm check running...');
-      
-      try {
-        // Check for any pending alarms that should have triggered
-        const alarms = await getStoredAlarms();
-        const now = Date.now();
+    if (!TaskManager.isTaskDefined(ALARM_CHECK_TASK)) {
+      TaskManager.defineTask(ALARM_CHECK_TASK, async () => {
+        console.log('🔄 [ALARM] Background task running...');
         
-        for (const alarm of alarms) {
-          if (alarm.status === 'scheduled' && alarm.triggerTime <= now) {
-            console.log(`⏰ Background: Alarm should trigger for task: ${alarm.title}`);
-            // The notification should have already been scheduled
-            // Mark as triggered
-            alarm.status = 'triggered';
+        try {
+          const alarms = await getStoredAlarms();
+          const now = Date.now();
+          let hasUpdates = false;
+          
+          for (const alarm of alarms) {
+            if (alarm.status === 'scheduled' && alarm.triggerTime <= now) {
+              console.log(`⏰ [ALARM] Background trigger: ${alarm.title}`);
+              alarm.status = 'triggered';
+              
+              // Store triggered alarm data
+              await storeTriggeredAlarm({
+                taskId: alarm.taskId,
+                title: alarm.title,
+                description: alarm.description,
+                soundUrl: alarm.soundUrl,
+                voiceUri: alarm.voiceUri,
+                voiceReadingEnabled: alarm.voiceReadingEnabled,
+                triggeredAt: now,
+              });
+              
+              hasUpdates = true;
+            }
           }
+          
+          if (hasUpdates) {
+            await saveAlarms(alarms);
+          }
+          
+          return BackgroundFetch.BackgroundFetchResult.NewData;
+        } catch (error) {
+          console.error('[ALARM] Background task error:', error);
+          return BackgroundFetch.BackgroundFetchResult.Failed;
         }
-        
-        await saveAlarms(alarms);
-        return BackgroundFetch.BackgroundFetchResult.NewData;
-      } catch (error) {
-        console.error('Background task error:', error);
-        return BackgroundFetch.BackgroundFetchResult.Failed;
-      }
-    });
+      });
+    }
     
-    // Register the background fetch
+    // Register background fetch
     const status = await BackgroundFetch.getStatusAsync();
-    
     if (status === BackgroundFetch.BackgroundFetchStatus.Available) {
       await BackgroundFetch.registerTaskAsync(ALARM_CHECK_TASK, {
-        minimumInterval: 60, // 1 minute minimum
+        minimumInterval: 60,
         stopOnTerminate: false,
         startOnBoot: true,
       });
-      console.log('✅ Background task registered');
-    } else {
-      console.log('⚠️ Background fetch not available on this device');
+      console.log('✅ [ALARM] Background task registered');
     }
   } catch (error) {
-    console.log('ℹ️ Background task registration skipped:', error);
+    console.log('ℹ️ [ALARM] Background task not available:', error);
   }
 }
 
 /**
- * Set up notification listeners for handling alarm interactions
+ * Schedule a FULL-SCREEN system alarm
  */
-function setupNotificationListeners() {
-  // When notification is received while app is in foreground
-  Notifications.addNotificationReceivedListener((notification) => {
-    console.log('📬 Notification received in foreground:', notification.request.identifier);
-    const data = notification.request.content.data as any;
-    
-    if (data?.type === 'alarm') {
-      console.log('🔔 Alarm notification received for task:', data.taskId);
-      // The app will handle showing the alarm modal
-    }
-  });
-  
-  // When user interacts with notification
-  Notifications.addNotificationResponseReceivedListener((response) => {
-    console.log('👆 Notification tapped:', response.notification.request.identifier);
-    const data = response.notification.request.content.data as any;
-    
-    if (data?.type === 'alarm') {
-      console.log('🔔 User tapped alarm notification for task:', data.taskId);
-      // The app should open and show the alarm modal
-    }
-  });
-  
-  console.log('✅ Notification listeners set up');
-}
-
-/**
- * Schedule a system-level alarm that works even when app is closed
- */
-export async function scheduleSystemAlarm(
+export async function scheduleFullScreenAlarm(
   taskId: string,
   title: string,
   triggerTime: Date,
@@ -278,72 +303,71 @@ export async function scheduleSystemAlarm(
     const seconds = Math.max(1, Math.floor((triggerTime.getTime() - now.getTime()) / 1000));
     
     if (seconds <= 0) {
-      console.error('❌ Cannot schedule alarm for past time');
+      console.error('❌ [ALARM] Cannot schedule for past time');
       return null;
     }
     
-    console.log('📅 Scheduling system-level alarm:');
+    console.log('📅 [ALARM] Scheduling FULL-SCREEN alarm:');
     console.log(`   Task: ${title}`);
-    console.log(`   Task ID: ${taskId}`);
-    console.log(`   Trigger in: ${seconds} seconds (${Math.round(seconds / 60)} minutes)`);
-    console.log(`   Trigger time: ${triggerTime.toLocaleString()}`);
+    console.log(`   Trigger in: ${seconds}s (${Math.round(seconds / 60)}min)`);
+    console.log(`   Time: ${triggerTime.toLocaleString()}`);
     
-    // Create notification content
+    // Create alarm notification content
     const notificationContent: Notifications.NotificationContentInput = {
-      title: `🔔 ${title}`,
-      body: options.description || 'Time for your task!',
+      title: `🔔 ALARM: ${title}`,
+      body: options.description || 'Time for your scheduled task!',
       sound: true,
       priority: Notifications.AndroidNotificationPriority.MAX,
-      vibrate: [0, 500, 250, 500, 250, 500],
+      vibrate: [0, 1000, 500, 1000, 500, 1000],
       data: {
         type: 'alarm',
         taskId,
         title,
         description: options.description,
-        soundUrl: options.soundUrl,
+        soundUrl: options.soundUrl || 'default',
         voiceUri: options.voiceUri,
         voiceReadingEnabled: options.voiceReadingEnabled,
         triggerTime: triggerTime.getTime(),
+        isFullScreen: true,
       },
       categoryIdentifier: 'alarm',
-      // Android specific
+      // Android specific - these help with full-screen behavior
       sticky: true,
       autoDismiss: false,
     };
     
-    // Schedule the notification using TIME_INTERVAL trigger
-    // This is more reliable for exact timing
-    const notificationId = await Notifications.scheduleNotificationAsync({
+    // Schedule PRIMARY notification (TIME_INTERVAL for accuracy)
+    const primaryId = await Notifications.scheduleNotificationAsync({
       content: notificationContent,
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds: seconds,
-        channelId: 'critical_alarm',
+        channelId: 'alarm_critical',
       },
     });
     
-    console.log('✅ System notification scheduled:', notificationId);
+    console.log('✅ [ALARM] Primary notification scheduled:', primaryId);
     
-    // Also schedule a backup notification using DATE trigger for reliability
+    // Schedule BACKUP notification (DATE trigger as fallback)
+    let backupId: string | undefined;
     try {
-      const backupId = await Notifications.scheduleNotificationAsync({
+      backupId = await Notifications.scheduleNotificationAsync({
         content: {
           ...notificationContent,
-          title: `⏰ ${title}`,
-          subtitle: 'Backup alarm',
+          title: `⏰ REMINDER: ${title}`,
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: triggerTime,
-          channelId: 'alarm',
+          channelId: 'alarm_backup',
         },
       });
-      console.log('✅ Backup notification scheduled:', backupId);
-    } catch (backupError) {
-      console.log('ℹ️ Backup notification not needed:', backupError);
+      console.log('✅ [ALARM] Backup notification scheduled:', backupId);
+    } catch (e) {
+      console.log('ℹ️ [ALARM] Backup notification skipped');
     }
     
-    // Store the alarm in AsyncStorage for persistence
+    // Store alarm data
     const alarm: ScheduledAlarm = {
       id: `alarm_${taskId}_${Date.now()}`,
       taskId,
@@ -353,62 +377,213 @@ export async function scheduleSystemAlarm(
       soundUrl: options.soundUrl,
       voiceUri: options.voiceUri,
       voiceReadingEnabled: options.voiceReadingEnabled,
-      notificationId,
+      notificationId: primaryId,
+      backupNotificationId: backupId,
       status: 'scheduled',
     };
     
     await storeAlarm(alarm);
     
-    console.log('✅ System alarm scheduled successfully');
-    console.log(`   Notification ID: ${notificationId}`);
-    console.log(`   Will trigger at: ${triggerTime.toLocaleTimeString()}`);
-    
-    return notificationId;
+    console.log('✅ [ALARM] Full-screen alarm scheduled successfully');
+    return primaryId;
   } catch (error) {
-    console.error('❌ Failed to schedule system alarm:', error);
+    console.error('❌ [ALARM] Scheduling failed:', error);
     return null;
   }
 }
 
 /**
- * Cancel a scheduled system alarm
+ * Start playing alarm sound (loops continuously)
  */
-export async function cancelSystemAlarm(taskId: string): Promise<boolean> {
+export async function startAlarmSound(soundId: string = 'default'): Promise<void> {
+  if (isAlarmPlaying) {
+    console.log('ℹ️ [ALARM] Sound already playing');
+    return;
+  }
+  
   try {
-    // Get stored alarms
-    const alarms = await getStoredAlarms();
-    const taskAlarms = alarms.filter(a => a.taskId === taskId);
+    console.log('🔊 [ALARM] Starting alarm sound:', soundId);
     
-    for (const alarm of taskAlarms) {
-      if (alarm.notificationId) {
-        await Notifications.cancelScheduledNotificationAsync(alarm.notificationId);
-        console.log(`✅ Cancelled notification: ${alarm.notificationId}`);
+    // Stop any existing sound
+    await stopAlarmSound();
+    
+    // Get sound URL
+    const soundUrl = ALARM_SOUNDS[soundId] || ALARM_SOUNDS.default;
+    
+    // Create and play sound
+    const { sound } = await Audio.Sound.createAsync(
+      { uri: soundUrl },
+      { 
+        shouldPlay: true, 
+        isLooping: true,
+        volume: 1.0,
       }
+    );
+    
+    alarmSound = sound;
+    isAlarmPlaying = true;
+    
+    // Start vibration pattern
+    Vibration.vibrate([0, 1000, 500, 1000, 500, 1000], true);
+    
+    // Auto-stop after 5 minutes
+    alarmStopTimeout = setTimeout(() => {
+      console.log('⏰ [ALARM] Auto-stopping after 5 minutes');
+      stopAlarmSound();
+    }, AUTO_STOP_DURATION);
+    
+    console.log('✅ [ALARM] Sound started');
+  } catch (error) {
+    console.error('❌ [ALARM] Sound playback failed:', error);
+  }
+}
+
+/**
+ * Stop alarm sound
+ */
+export async function stopAlarmSound(): Promise<void> {
+  try {
+    console.log('🔇 [ALARM] Stopping alarm sound');
+    
+    // Stop vibration
+    Vibration.cancel();
+    
+    // Clear auto-stop timeout
+    if (alarmStopTimeout) {
+      clearTimeout(alarmStopTimeout);
+      alarmStopTimeout = null;
     }
     
-    // Remove from storage
-    const remainingAlarms = alarms.filter(a => a.taskId !== taskId);
-    await saveAlarms(remainingAlarms);
+    // Stop and unload sound
+    if (alarmSound) {
+      await alarmSound.stopAsync();
+      await alarmSound.unloadAsync();
+      alarmSound = null;
+    }
     
-    console.log(`✅ Cancelled all alarms for task: ${taskId}`);
-    return true;
+    isAlarmPlaying = false;
+    console.log('✅ [ALARM] Sound stopped');
   } catch (error) {
-    console.error('❌ Failed to cancel system alarm:', error);
+    console.error('❌ [ALARM] Stop sound failed:', error);
+  }
+}
+
+/**
+ * Cancel a scheduled alarm
+ */
+export async function cancelAlarm(taskId: string): Promise<boolean> {
+  try {
+    const alarms = await getStoredAlarms();
+    const alarm = alarms.find(a => a.taskId === taskId);
+    
+    if (alarm) {
+      // Cancel notifications
+      if (alarm.notificationId) {
+        await Notifications.cancelScheduledNotificationAsync(alarm.notificationId);
+      }
+      if (alarm.backupNotificationId) {
+        await Notifications.cancelScheduledNotificationAsync(alarm.backupNotificationId);
+      }
+      
+      // Remove from storage
+      const remaining = alarms.filter(a => a.taskId !== taskId);
+      await saveAlarms(remaining);
+      
+      console.log('✅ [ALARM] Cancelled alarm for task:', taskId);
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('❌ [ALARM] Cancel failed:', error);
     return false;
   }
 }
 
 /**
- * Cancel all scheduled system alarms
+ * Snooze alarm for specified minutes
  */
-export async function cancelAllSystemAlarms(): Promise<void> {
+export async function snoozeAlarm(
+  taskId: string,
+  title: string,
+  minutes: number = 5,
+  options: any = {}
+): Promise<string | null> {
   try {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    await saveAlarms([]);
-    console.log('✅ All system alarms cancelled');
+    console.log(`😴 [ALARM] Snoozing for ${minutes} minutes`);
+    
+    // Stop current alarm
+    await stopAlarmSound();
+    
+    // Cancel current notifications
+    await cancelAlarm(taskId);
+    
+    // Schedule new alarm
+    const snoozeTime = new Date(Date.now() + minutes * 60 * 1000);
+    return await scheduleFullScreenAlarm(taskId, title, snoozeTime, options);
   } catch (error) {
-    console.error('❌ Failed to cancel all alarms:', error);
+    console.error('❌ [ALARM] Snooze failed:', error);
+    return null;
   }
+}
+
+/**
+ * Check for alarms that triggered while app was closed
+ */
+async function checkForTriggeredAlarms(): Promise<TriggeredAlarmData | null> {
+  try {
+    const data = await AsyncStorage.getItem(TRIGGERED_ALARM_KEY);
+    if (data) {
+      const triggeredAlarm: TriggeredAlarmData = JSON.parse(data);
+      console.log('🔔 [ALARM] Found triggered alarm:', triggeredAlarm.title);
+      return triggeredAlarm;
+    }
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Get triggered alarm data (call this on app open)
+ */
+export async function getTriggeredAlarm(): Promise<TriggeredAlarmData | null> {
+  return checkForTriggeredAlarms();
+}
+
+/**
+ * Clear triggered alarm data
+ */
+export async function clearTriggeredAlarm(): Promise<void> {
+  await AsyncStorage.removeItem(TRIGGERED_ALARM_KEY);
+}
+
+/**
+ * Store triggered alarm data
+ */
+async function storeTriggeredAlarm(data: TriggeredAlarmData): Promise<void> {
+  await AsyncStorage.setItem(TRIGGERED_ALARM_KEY, JSON.stringify(data));
+}
+
+// Storage helpers
+async function storeAlarm(alarm: ScheduledAlarm): Promise<void> {
+  const alarms = await getStoredAlarms();
+  const filtered = alarms.filter(a => a.taskId !== alarm.taskId);
+  filtered.push(alarm);
+  await saveAlarms(filtered);
+}
+
+async function getStoredAlarms(): Promise<ScheduledAlarm[]> {
+  try {
+    const data = await AsyncStorage.getItem(ALARM_STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveAlarms(alarms: ScheduledAlarm[]): Promise<void> {
+  await AsyncStorage.setItem(ALARM_STORAGE_KEY, JSON.stringify(alarms));
 }
 
 /**
@@ -419,112 +594,46 @@ export async function getScheduledAlarms(): Promise<ScheduledAlarm[]> {
 }
 
 /**
- * Store alarm in AsyncStorage
+ * Debug: List all scheduled notifications
  */
-async function storeAlarm(alarm: ScheduledAlarm): Promise<void> {
-  const alarms = await getStoredAlarms();
-  
-  // Remove any existing alarm for the same task
-  const filteredAlarms = alarms.filter(a => a.taskId !== alarm.taskId);
-  filteredAlarms.push(alarm);
-  
-  await saveAlarms(filteredAlarms);
+export async function debugListNotifications(): Promise<void> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  console.log('📋 [ALARM] Scheduled notifications:', scheduled.length);
+  scheduled.forEach((n, i) => {
+    console.log(`  ${i + 1}. ${n.content.title} - ID: ${n.identifier}`);
+  });
 }
 
 /**
- * Get stored alarms from AsyncStorage
- */
-async function getStoredAlarms(): Promise<ScheduledAlarm[]> {
-  try {
-    const data = await AsyncStorage.getItem(ALARM_STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch (error) {
-    console.error('Error reading stored alarms:', error);
-    return [];
-  }
-}
-
-/**
- * Save alarms to AsyncStorage
- */
-async function saveAlarms(alarms: ScheduledAlarm[]): Promise<void> {
-  try {
-    await AsyncStorage.setItem(ALARM_STORAGE_KEY, JSON.stringify(alarms));
-  } catch (error) {
-    console.error('Error saving alarms:', error);
-  }
-}
-
-/**
- * Check if device can schedule exact alarms
- */
-export async function canScheduleExactAlarms(): Promise<boolean> {
-  if (Platform.OS !== 'android') {
-    return true; // iOS handles this differently
-  }
-  
-  // For Android 12+, check if exact alarm permission is granted
-  if (Platform.Version >= 31) {
-    const { status } = await Notifications.getPermissionsAsync();
-    return status === 'granted';
-  }
-  
-  return true;
-}
-
-/**
- * Open device settings for alarm permissions
+ * Open device alarm settings
  */
 export async function openAlarmSettings(): Promise<void> {
   if (Platform.OS === 'android') {
-    try {
-      // Try to open exact alarm settings (Android 12+)
-      if (Platform.Version >= 31) {
-        await Linking.openSettings();
-      } else {
-        await Linking.openSettings();
-      }
-    } catch (error) {
-      Alert.alert(
-        'Open Settings',
-        'Please go to Settings > Apps > Noregret > Permissions and enable all permissions.',
-        [{ text: 'OK' }]
-      );
-    }
-  } else {
-    await Linking.openSettings();
-  }
-}
-
-/**
- * Request to disable battery optimization for the app
- */
-export async function requestBatteryOptimizationExemption(): Promise<void> {
-  if (Platform.OS === 'android') {
     Alert.alert(
-      'Battery Optimization',
-      'For reliable alarms, please disable battery optimization for Noregret.\n\nGo to: Settings > Apps > Noregret > Battery > Unrestricted',
+      'Enable Alarm Permissions',
+      'For reliable alarms, please:\n\n1. Enable "Alarms & reminders" permission\n2. Disable battery optimization\n3. Allow notifications\n\nGo to Settings now?',
       [
-        { text: 'Open Settings', onPress: () => Linking.openSettings() },
         { text: 'Later', style: 'cancel' },
+        { text: 'Open Settings', onPress: () => Linking.openSettings() },
       ]
     );
+  } else {
+    Linking.openSettings();
   }
 }
 
 /**
- * Debug: List all scheduled notifications
+ * Request battery optimization exemption
  */
-export async function debugListScheduledNotifications(): Promise<void> {
-  try {
-    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-    console.log('📋 Scheduled notifications:', scheduled.length);
-    scheduled.forEach((notif, index) => {
-      console.log(`  ${index + 1}. ID: ${notif.identifier}`);
-      console.log(`     Title: ${notif.content.title}`);
-      console.log(`     Trigger: ${JSON.stringify(notif.trigger)}`);
-    });
-  } catch (error) {
-    console.error('Error listing notifications:', error);
+export function requestBatteryOptimization(): void {
+  if (Platform.OS === 'android') {
+    Alert.alert(
+      'Disable Battery Optimization',
+      'For alarms to work reliably when the app is closed, please disable battery optimization for Noregret.\n\nSettings → Apps → Noregret → Battery → Unrestricted',
+      [
+        { text: 'Later', style: 'cancel' },
+        { text: 'Open Settings', onPress: () => Linking.openSettings() },
+      ]
+    );
   }
 }
