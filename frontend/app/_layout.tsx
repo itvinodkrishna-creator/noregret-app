@@ -51,15 +51,25 @@ function TabLayout() {
   
   // Track if we've set up the callback
   const callbackSetRef = useRef(false);
+  const notificationSubscription = useRef<any>(null);
 
   // Load data and setup on mount
   useEffect(() => {
     loadData();
     initClickSound();
     initVoiceReader();
+    
+    // Initialize system alarm service (for background alarms)
+    if (Platform.OS !== 'web') {
+      initializeAlarmSystem().then(success => {
+        if (success) {
+          console.log('✅ System alarm service initialized');
+        }
+      });
+    }
   }, []);
 
-  // Setup alarm trigger callback ONCE on mount
+  // Setup alarm trigger callback and notification listeners
   useEffect(() => {
     if (callbackSetRef.current) return;
     callbackSetRef.current = true;
@@ -70,9 +80,74 @@ function TabLayout() {
     registerForPushNotificationsAsync();
     setupNotificationCategories();
     
-    // Set the callback that will be called when an alarm triggers
+    // Initialize the hybrid alarm scheduler
+    initAlarmScheduler();
+    
+    // Listen for notifications received while app is in foreground
+    const notificationReceivedSubscription = Notifications.addNotificationReceivedListener(notification => {
+      console.log('📬 Notification received in foreground:', notification.request.identifier);
+      const data = notification.request.content.data as any;
+      
+      if (data?.type === 'alarm' && data?.taskId) {
+        // Find the task
+        const task = useAppStore.getState().tasks.find(t => t._id === data.taskId);
+        const voiceEnabled = task?.voiceReadingEnabled || useAppStore.getState().preferences.voiceReadingEnabled || false;
+        
+        // Show our custom alarm modal
+        const newState: AlarmState = {
+          visible: true,
+          taskId: data.taskId,
+          title: data.title || task?.title || 'Task Reminder',
+          description: data.description || task?.description,
+          soundUrl: data.soundUrl || 'default',
+          voiceReadingEnabled: voiceEnabled && !data.voiceUri,
+          voiceUri: data.voiceUri || task?.voiceUri,
+        };
+        
+        playAlarmSound(data.soundUrl || 'default');
+        useAppStore.getState().markTaskAlarmTriggered(data.taskId);
+        
+        alarmStateRef.current = newState;
+        setAlarmState(newState);
+        
+        console.log('✅ Showing alarm modal from notification');
+      }
+    });
+    
+    // Listen for notification responses (user tapped notification)
+    const notificationResponseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('👆 Notification tapped:', response.notification.request.identifier);
+      const data = response.notification.request.content.data as any;
+      
+      if (data?.type === 'alarm' && data?.taskId) {
+        // Find the task
+        const task = useAppStore.getState().tasks.find(t => t._id === data.taskId);
+        const voiceEnabled = task?.voiceReadingEnabled || useAppStore.getState().preferences.voiceReadingEnabled || false;
+        
+        // Show our custom alarm modal
+        const newState: AlarmState = {
+          visible: true,
+          taskId: data.taskId,
+          title: data.title || task?.title || 'Task Reminder',
+          description: data.description || task?.description,
+          soundUrl: data.soundUrl || 'default',
+          voiceReadingEnabled: voiceEnabled && !data.voiceUri,
+          voiceUri: data.voiceUri || task?.voiceUri,
+        };
+        
+        playAlarmSound(data.soundUrl || 'default');
+        useAppStore.getState().markTaskAlarmTriggered(data.taskId);
+        
+        alarmStateRef.current = newState;
+        setAlarmState(newState);
+        
+        console.log('✅ Showing alarm modal from notification tap');
+      }
+    });
+    
+    // Set the callback that will be called when an in-app alarm triggers
     setAlarmTriggerCallback((alarm) => {
-      console.log('🚨🚨🚨 ALARM CALLBACK TRIGGERED! 🚨🚨🚨');
+      console.log('🚨🚨🚨 IN-APP ALARM CALLBACK TRIGGERED! 🚨🚨🚨');
       console.log(`   Task: ${alarm.title}`);
       console.log(`   ID: ${alarm.taskId}`);
       
