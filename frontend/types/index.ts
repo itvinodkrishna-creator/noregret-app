@@ -14,6 +14,20 @@ export interface Task {
   voiceReadingEnabled?: boolean;
   alarmTriggered?: boolean;
   voiceUri?: string; // Recorded voice to play at alarm time
+  // Weekly recurring options
+  recurringType?: 'none' | 'daily' | 'weekly';
+  recurringDay?: number; // 0 = Sunday, 1 = Monday, ... 6 = Saturday
+}
+
+// To-Do List Item
+export interface TodoItem {
+  _id: string;
+  title: string;
+  time?: string; // Optional time
+  completed: boolean;
+  createdAt: string;
+  completedAt?: string;
+  order: number; // For sorting
 }
 
 // Status configuration for display
