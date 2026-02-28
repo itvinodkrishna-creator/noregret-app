@@ -1395,4 +1395,73 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#10B981',
   },
+  // Recurring task styles
+  recurringContainer: {
+    paddingTop: 16,
+    marginTop: 16,
+    borderTopWidth: 1,
+  },
+  recurringHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  recurringTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  recurringTypeRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  recurringTypeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  recurringTypeText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  weeklyDayContainer: {
+    marginTop: 16,
+  },
+  weeklyDayLabel: {
+    fontSize: 13,
+    marginBottom: 10,
+  },
+  weeklyDayGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  weeklyDayButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  weeklyDayText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  weeklyDayInfo: {
+    fontSize: 12,
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
+  recurringInfo: {
+    fontSize: 12,
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
 });
