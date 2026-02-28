@@ -2,7 +2,7 @@
   "expo": {
     "name": "Noregret",
     "slug": "noregret",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "noregret",
@@ -48,7 +48,10 @@
         "SCHEDULE_EXACT_ALARM",
         "USE_EXACT_ALARM",
         "FOREGROUND_SERVICE",
-        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "ACCESS_NOTIFICATION_POLICY",
+        "SYSTEM_ALERT_WINDOW"
       ]
     },
     "web": {
@@ -67,7 +70,8 @@
         }
       ],
       "expo-audio",
-      "expo-task-manager"
+      "expo-task-manager",
+      "@notifee/react-native"
     ],
     "experiments": {
       "typedRoutes": true
