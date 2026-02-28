@@ -61,6 +61,20 @@ export default function TasksScreen() {
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
   const [taskVoiceUri, setTaskVoiceUri] = useState<string | null>(null);
   const [isRecordingTitle, setIsRecordingTitle] = useState(false);
+  
+  // Weekly recurring state
+  const [recurringType, setRecurringType] = useState<'none' | 'daily' | 'weekly'>('none');
+  const [recurringDay, setRecurringDay] = useState<number>(1); // Monday by default
+
+  const DAYS_OF_WEEK = [
+    { id: 0, label: 'Sunday', short: 'Sun' },
+    { id: 1, label: 'Monday', short: 'Mon' },
+    { id: 2, label: 'Tuesday', short: 'Tue' },
+    { id: 3, label: 'Wednesday', short: 'Wed' },
+    { id: 4, label: 'Thursday', short: 'Thu' },
+    { id: 5, label: 'Friday', short: 'Fri' },
+    { id: 6, label: 'Saturday', short: 'Sat' },
+  ];
 
   useEffect(() => {
     loadData();
