@@ -354,6 +354,15 @@ function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name="todo"
+          options={{
+            title: 'To-Do',
+            tabBarIcon: ({ color, size, focused }) => (
+              <TabIcon name="list" color={color} size={size} focused={focused} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="dashboard"
           options={{
             title: 'Home',
