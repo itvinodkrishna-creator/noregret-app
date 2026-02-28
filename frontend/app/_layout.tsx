@@ -7,6 +7,7 @@ import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { useAppStore } from '../store/useAppStore';
 import { AlarmModal } from '../components/AlarmModal';
 import { FloatingHomeButton } from '../components/FloatingHomeButton';
+import { FloatingTodoButton } from '../components/FloatingTodoButton';
 import { 
   setAlarmTriggerCallback, 
   snoozeAlarm as snoozeAlarmScheduler,
