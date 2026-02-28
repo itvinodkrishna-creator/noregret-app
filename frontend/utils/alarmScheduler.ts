@@ -1,15 +1,15 @@
 /**
- * Web-compatible Alarm Scheduler
+ * Hybrid Alarm Scheduler
  * 
- * Since expo-notifications scheduled notifications don't work reliably on web,
- * this module provides a timer-based alarm system that works across all platforms.
+ * This module provides a dual alarm system:
+ * 1. In-app timer (setTimeout) - for when app is in foreground
+ * 2. System-level notification - for when app is closed/background
  * 
- * For native apps, it ALSO schedules a native notification as backup for when 
- * the app is closed.
+ * The system notification will wake the device and play sound even if app is killed.
  */
 
 import { Platform } from 'react-native';
-import { scheduleBackgroundAlarm, cancelNotification } from './notifications';
+import { scheduleSystemAlarm, cancelSystemAlarm, initializeAlarmSystem } from './systemAlarmService';
 
 interface ScheduledAlarm {
   id: string;
@@ -18,18 +18,33 @@ interface ScheduledAlarm {
   description?: string;
   triggerTime: Date;
   soundUrl: string;
+  voiceUri?: string;
+  voiceReadingEnabled?: boolean;
   timerId?: any; // Use any for cross-platform compatibility
-  nativeNotificationId?: string; // ID of the native notification for background
+  systemNotificationId?: string; // ID of the system notification for background
 }
 
 // Store scheduled alarms in memory
 let scheduledAlarms: Map<string, ScheduledAlarm> = new Map();
 
-// Callback for when alarm triggers
+// Callback for when alarm triggers (in-app)
 let onAlarmTriggerCallback: ((alarm: ScheduledAlarm) => void) | null = null;
 
+// Track if system is initialized
+let systemInitialized = false;
+
 /**
- * Set the callback function that will be called when an alarm triggers
+ * Initialize the alarm system (call this on app start)
+ */
+export async function initAlarmScheduler(): Promise<void> {
+  if (!systemInitialized) {
+    await initializeAlarmSystem();
+    systemInitialized = true;
+  }
+}
+
+/**
+ * Set the callback function that will be called when an alarm triggers in-app
  */
 export function setAlarmTriggerCallback(callback: (alarm: ScheduledAlarm) => void) {
   onAlarmTriggerCallback = callback;
@@ -38,26 +53,31 @@ export function setAlarmTriggerCallback(callback: (alarm: ScheduledAlarm) => voi
 
 /**
  * Schedule an alarm to trigger at a specific time
- * This schedules both a timer (for when app is open) and a native notification (for background)
+ * This schedules BOTH:
+ * 1. An in-app timer for foreground display
+ * 2. A system-level notification for background/killed app
  */
 export async function scheduleAlarm(
   taskId: string,
   title: string,
   triggerTime: Date,
   soundUrl: string = 'default',
-  description?: string
+  description?: string,
+  voiceUri?: string,
+  voiceReadingEnabled?: boolean
 ): Promise<string> {
   const alarmId = `alarm_${taskId}_${Date.now()}`;
   
   const now = new Date();
   const msUntilTrigger = triggerTime.getTime() - now.getTime();
   
-  console.log('⏰ Scheduling alarm:');
+  console.log('⏰ Scheduling HYBRID alarm:');
   console.log(`   Task: ${title}`);
+  console.log(`   Task ID: ${taskId}`);
   console.log(`   Current time: ${now.toLocaleTimeString()}`);
   console.log(`   Trigger time: ${triggerTime.toLocaleTimeString()}`);
-  console.log(`   Ms until trigger: ${msUntilTrigger}`);
-  console.log(`   Minutes until trigger: ${Math.round(msUntilTrigger / 60000)}`);
+  console.log(`   Seconds until trigger: ${Math.round(msUntilTrigger / 1000)}`);
+  console.log(`   Voice URI: ${voiceUri ? 'YES' : 'NO'}`);
   
   // Don't schedule if time is in the past
   if (msUntilTrigger <= 0) {
@@ -73,6 +93,8 @@ export async function scheduleAlarm(
     description,
     triggerTime,
     soundUrl,
+    voiceUri,
+    voiceReadingEnabled,
   };
   
   // Schedule native notification for background (native platforms only)
