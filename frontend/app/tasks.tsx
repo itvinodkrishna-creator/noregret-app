@@ -154,6 +154,9 @@ export default function TasksScreen() {
     setSelectedRingtone('default');
     setShowRingtonePicker(false);
     setVoiceReadingEnabled(false);
+    setRecurringType('none');
+    setRecurringDay(1);
+    setTaskVoiceUri(null);
   };
 
   const handleAddTask = async () => {
