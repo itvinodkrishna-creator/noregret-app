@@ -312,11 +312,11 @@ export async function scheduleFullScreenAlarm(
     console.log(`   Trigger in: ${seconds}s (${Math.round(seconds / 60)}min)`);
     console.log(`   Time: ${triggerTime.toLocaleString()}`);
     
-    // Create alarm notification content
+    // Create alarm notification content with custom sound
     const notificationContent: Notifications.NotificationContentInput = {
       title: `🔔 ALARM: ${title}`,
       body: options.description || 'Time for your scheduled task!',
-      sound: true,
+      sound: 'alarm.mp3', // Custom alarm sound file
       priority: Notifications.AndroidNotificationPriority.MAX,
       vibrate: [0, 1000, 500, 1000, 500, 1000],
       data: {
