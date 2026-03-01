@@ -143,12 +143,12 @@ export async function scheduleNotifeeAlarm(
     console.log(`   Trigger in: ${seconds}s (${Math.round(seconds / 60)}min)`);
     console.log(`   Time: ${triggerTime.toLocaleString()}`);
 
-    // Schedule notification with EXACT timing
+    // Schedule notification with EXACT timing and CUSTOM ALARM SOUND
     const notificationId = await Notifications.scheduleNotificationAsync({
       content: {
         title: `🔔 ALARM: ${title}`,
         body: options.description || 'Time for your scheduled task!',
-        sound: true,
+        sound: 'alarm.mp3', // Use custom alarm sound
         priority: Notifications.AndroidNotificationPriority.MAX,
         vibrate: [0, 1000, 500, 1000, 500, 1000],
         sticky: true,
