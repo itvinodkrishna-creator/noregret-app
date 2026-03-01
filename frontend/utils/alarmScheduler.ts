@@ -1,11 +1,12 @@
 /**
  * Hybrid Alarm Scheduler
  * 
- * Combines:
- * 1. In-app timer (setTimeout) - For foreground alarm modal
- * 2. Notifee notifications - For TRUE background/killed app alarms
+ * Combines multiple alarm methods for maximum reliability:
+ * 1. NATIVE ALARM (expo-alarm-module) - Primary, works when app is closed
+ * 2. System notifications - Backup for when native alarm not available
+ * 3. In-app timer - For showing custom modal when app is open
  * 
- * Uses @notifee/react-native for reliable full-screen alarms on Android.
+ * Uses Android's native AlarmManager for TRUE alarm functionality.
  */
 
 import { Platform, Vibration } from 'react-native';
@@ -26,6 +27,11 @@ import {
   stopNotifeeVibration,
   requestBatteryExemption,
 } from './notifeeAlarmService';
+import {
+  scheduleNativeAlarm,
+  cancelNativeAlarm,
+  isNativeAlarmAvailable,
+} from './nativeAlarmService';
 
 // Alarm sound management
 let alarmSound: Audio.Sound | null = null;
