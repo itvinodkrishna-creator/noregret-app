@@ -189,14 +189,14 @@ async function setupNotificationChannels() {
   if (Platform.OS !== 'android') return;
   
   try {
-    // Main alarm channel - CRITICAL PRIORITY
+    // Main alarm channel - CRITICAL PRIORITY with custom alarm sound
     await Notifications.setNotificationChannelAsync('alarm_critical', {
       name: 'Critical Alarms',
       description: 'High-priority task alarms that wake the device',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 1000, 500, 1000, 500, 1000, 500, 1000],
       lightColor: '#FF0000',
-      sound: 'default',
+      sound: 'alarm.mp3', // Custom alarm sound
       enableVibrate: true,
       enableLights: true,
       bypassDnd: true,
@@ -210,13 +210,13 @@ async function setupNotificationChannels() {
       description: 'Backup alarm notifications',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 500, 250, 500],
-      sound: 'default',
+      sound: 'alarm.mp3', // Custom alarm sound
       enableVibrate: true,
       bypassDnd: true,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
     
-    console.log('✅ [ALARM] Notification channels configured');
+    console.log('✅ [ALARM] Notification channels configured with custom alarm sound');
   } catch (error) {
     console.error('❌ [ALARM] Channel setup failed:', error);
   }
