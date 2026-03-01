@@ -40,14 +40,14 @@ export async function initializeNotifeeAlarms(): Promise<boolean> {
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 1000, 500, 1000, 500, 1000],
         lightColor: '#FF0000',
-        sound: 'default',
+        sound: 'alarm.mp3', // Custom alarm sound
         enableVibrate: true,
         enableLights: true,
         bypassDnd: true,
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
         showBadge: true,
       });
-      console.log('✅ [ENHANCED-ALARM] Alarm channel created with MAX importance');
+      console.log('✅ [ENHANCED-ALARM] Alarm channel created with MAX importance and custom sound');
     }
 
     // Request permissions
