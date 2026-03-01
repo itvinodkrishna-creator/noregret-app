@@ -222,7 +222,7 @@ export function setAlarmTriggerCallback(callback: (alarm: ScheduledAlarm) => voi
 }
 
 /**
- * Schedule an alarm - uses BOTH Notifee and expo-notifications for maximum reliability
+ * Schedule an alarm - uses NATIVE ALARM + notifications for maximum reliability
  */
 export async function scheduleAlarm(
   taskId: string,
@@ -258,7 +258,24 @@ export async function scheduleAlarm(
   };
   
   if (Platform.OS !== 'web') {
-    // 1. Schedule with NOTIFEE (primary - most reliable for killed app)
+    // 1. Schedule with NATIVE ALARM MODULE (PRIMARY - works when app is completely closed!)
+    try {
+      if (isNativeAlarmAvailable()) {
+        const nativeSuccess = await scheduleNativeAlarm(taskId, title, triggerTime, {
+          description,
+        });
+        
+        if (nativeSuccess) {
+          console.log('✅ [SCHEDULER] NATIVE alarm scheduled - will work even when app is closed!');
+        }
+      } else {
+        console.log('ℹ️ [SCHEDULER] Native alarm not available, using fallback');
+      }
+    } catch (error) {
+      console.error('⚠️ [SCHEDULER] Native alarm failed:', error);
+    }
+    
+    // 2. Schedule with expo-notifications (backup)
     try {
       const notifeeId = await scheduleNotifeeAlarm(taskId, title, triggerTime, {
         description,
@@ -269,13 +286,13 @@ export async function scheduleAlarm(
       
       if (notifeeId) {
         alarm.notifeeId = notifeeId;
-        console.log('✅ [SCHEDULER] Notifee alarm scheduled:', notifeeId);
+        console.log('✅ [SCHEDULER] Notification alarm scheduled:', notifeeId);
       }
     } catch (error) {
-      console.error('⚠️ [SCHEDULER] Notifee scheduling failed:', error);
+      console.error('⚠️ [SCHEDULER] Notification scheduling failed:', error);
     }
     
-    // 2. Schedule with expo-notifications (backup)
+    // 3. Schedule with expo-notifications system alarm (additional backup)
     try {
       const systemId = await scheduleFullScreenAlarm(taskId, title, triggerTime, {
         description,
