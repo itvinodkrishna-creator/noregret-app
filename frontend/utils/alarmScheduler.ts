@@ -372,6 +372,9 @@ export function cancelAlarmsForTask(taskId: string): number {
   });
   
   if (Platform.OS !== 'web') {
+    // Cancel native alarm
+    cancelNativeAlarm(taskId);
+    // Cancel notification alarms
     cancelNotifeeAlarm(taskId);
     cancelSystemAlarm(taskId);
   }
