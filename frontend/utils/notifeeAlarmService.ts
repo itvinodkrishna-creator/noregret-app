@@ -111,6 +111,7 @@ export function setNotifeeAlarmCallback(callback: (data: any) => void): void {
 
 /**
  * Schedule an alarm notification with maximum priority
+ * Sends 3 notifications back-to-back for better visibility
  */
 export async function scheduleNotifeeAlarm(
   taskId: string,
@@ -138,43 +139,54 @@ export async function scheduleNotifeeAlarm(
     }
 
     const seconds = Math.floor(delay / 1000);
-    console.log(`📅 [ENHANCED-ALARM] Scheduling alarm:`);
+    console.log(`📅 [ENHANCED-ALARM] Scheduling 3 back-to-back alarm notifications:`);
     console.log(`   Task: ${title}`);
     console.log(`   Trigger in: ${seconds}s (${Math.round(seconds / 60)}min)`);
     console.log(`   Time: ${triggerTime.toLocaleString()}`);
 
-    // Schedule notification with EXACT timing and CUSTOM ALARM SOUND
-    const notificationId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: `🔔 ALARM: ${title}`,
-        body: options.description || 'Time for your scheduled task!',
-        sound: 'alarm.mp3', // Use custom alarm sound
-        priority: Notifications.AndroidNotificationPriority.MAX,
-        vibrate: [0, 1000, 500, 1000, 500, 1000],
-        sticky: true,
-        autoDismiss: false,
-        categoryIdentifier: 'alarm',
-        data: {
-          type: 'alarm',
-          taskId,
-          title,
-          description: options.description,
-          soundUrl: options.soundUrl || 'default',
-          voiceUri: options.voiceUri,
-          voiceReadingEnabled: options.voiceReadingEnabled,
-          triggerTime: triggerTime.getTime(),
-          isFullScreen: true,
+    // Schedule 3 notifications back-to-back (0s, 3s, 6s apart)
+    const notificationIds: string[] = [];
+    
+    for (let i = 0; i < 3; i++) {
+      const notificationTime = new Date(triggerTime.getTime() + (i * 3000)); // 3 seconds apart
+      
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: i === 0 ? `🔔 ALARM: ${title}` : `⏰ REMINDER ${i + 1}: ${title}`,
+          body: i === 0 
+            ? (options.description || 'Time for your scheduled task!') 
+            : `Don't forget: ${title}`,
+          sound: 'alarm.mp3',
+          priority: Notifications.AndroidNotificationPriority.MAX,
+          vibrate: [0, 1000, 500, 1000, 500, 1000],
+          sticky: true,
+          autoDismiss: false,
+          categoryIdentifier: 'alarm',
+          data: {
+            type: 'alarm',
+            taskId,
+            title,
+            description: options.description,
+            soundUrl: options.soundUrl || 'default',
+            voiceUri: options.voiceUri,
+            voiceReadingEnabled: options.voiceReadingEnabled,
+            triggerTime: triggerTime.getTime(),
+            isFullScreen: true,
+            notificationIndex: i + 1,
+          },
         },
-      },
-      trigger: {
-        type: Notifications.SchedulableTriggerInputTypes.DATE,
-        date: triggerTime,
-        channelId: ALARM_CHANNEL_ID,
-      },
-    });
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: notificationTime,
+          channelId: ALARM_CHANNEL_ID,
+        },
+      });
+      
+      notificationIds.push(notificationId);
+    }
 
-    console.log(`✅ [ENHANCED-ALARM] Alarm scheduled: ${notificationId}`);
-    return notificationId;
+    console.log(`✅ [ENHANCED-ALARM] 3 alarms scheduled:`, notificationIds);
+    return notificationIds[0];
   } catch (error) {
     console.error('❌ [ENHANCED-ALARM] Schedule failed:', error);
     return null;
