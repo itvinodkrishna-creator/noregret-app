@@ -14,7 +14,7 @@ import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Constants
-const ALARM_CHANNEL_ID = 'noregret-alarm-channel';
+const ALARM_CHANNEL_ID = 'noregret-alarm-v2'; // New channel ID to reset settings
 const PENDING_ALARM_KEY = '@noregret_pending_alarm_v2';
 
 // Alarm callback
