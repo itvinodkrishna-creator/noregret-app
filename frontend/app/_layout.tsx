@@ -8,6 +8,7 @@ import { useAppStore } from '../store/useAppStore';
 import { AlarmModal } from '../components/AlarmModal';
 import { FloatingHomeButton } from '../components/FloatingHomeButton';
 import { FloatingTodoButton } from '../components/FloatingTodoButton';
+import { FloatingGoalsButton } from '../components/FloatingGoalsButton';
 import { 
   setAlarmTriggerCallback, 
   snoozeAlarm as snoozeAlarmScheduler,
@@ -410,6 +411,15 @@ function TabLayout() {
             ),
           }}
         />
+        <Tabs.Screen
+          name="goals"
+          options={{
+            title: 'Goals',
+            tabBarIcon: ({ color, size, focused }) => (
+              <TabIcon name="flag" color={color} size={size} focused={focused} />
+            ),
+          }}
+        />
         {/* Hide food and settings from tab bar - accessed via other means */}
         <Tabs.Screen
           name="food"
@@ -447,6 +457,9 @@ function TabLayout() {
       
       {/* Floating To-Do Button (right side middle) */}
       <FloatingTodoButton />
+      
+      {/* Floating Goals Button (top right) */}
+      <FloatingGoalsButton />
     </>
   );
 }
